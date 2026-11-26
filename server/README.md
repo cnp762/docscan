@@ -1,6 +1,6 @@
 # DocScan server
 
-Python FastAPI API for device auth, Play/App Store purchase verification stubs, and UTC daily quota.
+Python FastAPI API for device-ID identity (no user accounts), Play/App Store purchase verification stubs, and UTC daily quota (authoritative at Save).
 
 Public host target: **https://api.docscan.cam** (Cloudflare Tunnel).
 

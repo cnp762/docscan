@@ -26,9 +26,8 @@ Request **just-in-time** with a short in-app pre-prompt. Deny must not brick unr
 | PHPicker / PhotosPicker | Import | No library permission |
 | `NSPhotoLibraryAddUsageDescription` | If save-to-Photos | Optional |
 | iCloud Documents | iCloud backup | Entitlement |
-| Sign in with Apple | Optional account / restore | |
-| StoreKit | — | No privacy string |
-| Google Sign-In URL scheme | Drive/Photos | Plist + client ID |
+| StoreKit | — | No privacy string; Restore Purchases via store account (no DocScan login) |
+| Google Sign-In URL scheme | Drive/Photos backup only | Plist + client ID — not a DocScan account |
 
 ### Suggested purpose strings (English)
 

@@ -11,5 +11,6 @@
 | **Library suggest** | Feature that reads photo library (last 7 days) and proposes document-like photos to import |
 | **Searchable PDF** | PDF with page images plus an OCR text layer for find/copy |
 | **Entitlement** | Pro subscription status verified via store + server |
+| **Banner slot** | AdMob strip above bottom nav on Free Library / Search / Detail; hidden for Pro |
 | **Local-first** | Images, OCR, tags, summaries stored on device; server does not hold document bytes |
 | **Package ID** | `cam.docscan` — Android applicationId and iOS Bundle ID |

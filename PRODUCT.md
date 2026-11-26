@@ -32,14 +32,16 @@ DocScan digitizes paper on-device: custom camera capture, import from device, 7-
 
 ## Monetization
 
-| Plan | Price |
-|------|-------|
-| Free | 5 page commits per UTC calendar day |
-| Pro monthly | $1 |
-| Pro quarterly (3 months) | $2 |
-| Pro yearly | $6 |
+| Plan | Price / notes |
+|------|----------------|
+| Free | 5 page commits per UTC calendar day + small banner ads (Library / Search / Detail) |
+| Pro monthly | $1 — unlimited saves, **no ads** |
+| Pro quarterly (3 months) | $2 — unlimited saves, **no ads** |
+| Pro yearly | $6 — unlimited saves, **no ads** |
 
 Quota unit: each **page committed** to the library after Review/Edit → Save (camera, import, or library suggest). Re-edit of saved pages does not consume quota.
+
+Telemetry: Firebase Analytics + Crashlytics (events only; never document images or OCR). Ads/analytics detail: `docs/ads-analytics.md`.
 
 ## Core journeys
 
@@ -50,4 +52,4 @@ Quota unit: each **page committed** to the library after Review/Edit → Save (c
 
 ## Server role
 
-Identity, subscription entitlement, daily quota ledger, minimal analytics. **No document image upload** in MVP.
+Device identity (no DocScan accounts), subscription entitlement, daily quota ledger (authoritative at Save). Product analytics/crashes via Firebase on-device SDKs (not DocScan server). **No document image upload** in MVP.

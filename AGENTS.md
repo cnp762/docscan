@@ -10,12 +10,13 @@ DocScan (`docscan.cam`, package `cam.docscan`) is a **local-first** document sca
 
 - UI strings: **English only**
 - Package / Bundle ID: **`cam.docscan`**
-- Free: **5 page commits / UTC day**; Pro: **$1 / $2 / $6**
+- Free: **5 page commits / UTC day** + banner ads; Pro: **$1 / $2 / $6**, unlimited saves, **ad-free**
 - Custom camera + import + 7-day library suggest + **manual Preview/Edit before Save**
 - Models **bundled** in the app — **no R2** model hosting
 - **Never ship** CamScanner/competitor **`.so` engine binaries**; rewrite loaders/inference in DocScan native code
 - CamScanner **`.data`** may be used **after** offline decrypt/normalize into our format; otherwise rewrite with commercial-OK models (see `docs/engines/`)
-- Server: auth, billing, quota only — **no document image storage**
+- Server: device identity (no DocScan accounts), billing, quota (authoritative at Save) — **no document image storage**
+- Firebase Analytics + Crashlytics; **never** send doc images/OCR to Firebase — see `docs/ads-analytics.md`
 - Implement UI from `docs/screens/*` after user review when changing flows
 - Engine API: `docs/engines/contracts.md`
 

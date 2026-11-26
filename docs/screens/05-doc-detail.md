@@ -25,13 +25,16 @@ View pages, OCR text, summary, tags; actions edit/export/backup/copy.
 │  │ INVOICE #1042 …   │  │
 │  └───────────────────┘  │
 │  Tags: finance, tax     │
-│                         │
 │ [Edit] [Export] [Backup]│
+├─[ Ad banner · Free ]────┤
 └─────────────────────────┘
 ```
+
+Free: banner above bottom chrome / safe area. Pro: no banner.
 
 ## Acceptance
 
 - Copy places OCR on clipboard
 - Edit → Review/Edit (no quota)
 - Export / Backup / Print from overflow or buttons
+- Banner Free-only; must not cover Edit / Export / Backup

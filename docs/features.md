@@ -13,11 +13,14 @@
 | Search | Name, tag, date, OCR FTS | Semantic search |
 | Export | Images; **searchable PDF**; **DOCX**; **Print**; share sheet | Complex DOCX layout |
 | Backup | Google Drive; iCloud Drive (iOS); **Google Photos** (accept OAuth verify risk) | Shared albums |
-| Offline | Capture/import/edit/OCR/summary offline; network for quota reconcile, backup, auth | — |
-| Quota / Pro | 5 commits/UTC day; $1 / $2 / $6 | Promo codes |
-| Auth | Device guest + optional Apple/Google for restore | Full account doc sync |
+| Offline | Capture/import/edit/OCR/summary offline; network for quota reconcile, backup | — |
+| Quota / Pro | 5 commits/UTC day; server-authoritative at Save; $1 / $2 / $6; **ad-free on Pro** | Promo codes |
+| Ads | AdMob **banner** above bottom nav on Library / Search / Detail (Free only) | Interstitial / rewarded |
+| Analytics | **Firebase Analytics** + **Crashlytics** (no doc/OCR payloads) | Product analytics warehouse |
+| Auth | Device ID only (no DocScan login). Pro restore via App Store / Play | Multi-device account sync |
 | UI locale | English only | Other locales |
-| Compliance | Privacy, Terms, clear local data, disconnect backup | — |
+| Settings prefs | Auto-capture; default enhance; auto-rename from suggestion; background processing; notifications | Extra language packs UI |
+| Compliance | Privacy promise; disclose Firebase + ads; Terms; Licenses; Restore purchases; Manage subscription; clear local library; **Delete account & data** (device + server); disconnect backup | — |
 | Layout | Phone + tablet/landscape safe capture overlay | — |
 
 ## Quota definition

@@ -91,16 +91,17 @@ Provider, remote folder/album id, last_sync_at, per-entity remote ids.
 
 ## Server (Postgres)
 
-- **users** — id, auth_providers, created_at, locale, app_version
-- **devices** — device_id, user_id?, platform, push_token?
-- **subscriptions** — store, product_id, status, original_tx, expires_at, raw_receipt_ref
-- **quota_ledger** — subject_id, utc_day, scan_count
+MVP has **no users table** — identity is device-only.
+
+- **devices** — device_id (PK), platform, app_version?, push_token?, created_at, last_seen_at
+- **subscriptions** — store, product_id, status, original_tx, expires_at, raw_receipt_ref, last_device_id?
+- **quota_ledger** — subject_id (`device:{id}`), utc_day, scan_count
 - **events** — paywall_view, purchase, quota_hit (no document content)
 
 ## API (MVP)
 
-- Register/login device
-- Verify Apple / Google purchase → entitlement
+- `POST /v1/devices/register` — bind stable device UUID (no login)
+- Verify Apple / Google purchase → entitlement (Restore via store account)
 - `GET /quota/today`
-- `POST /quota/consume` `{ n: number }`
+- `POST /quota/consume` `{ n: number }` — authoritative free-tier gate at Save
 - Health check

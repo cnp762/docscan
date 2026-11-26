@@ -25,7 +25,7 @@ cd android
 ## iOS (`cam.docscan`)
 
 1. Create App ID / app in App Store Connect with Bundle ID **`cam.docscan`**
-2. Open `ios/DocScan.xcodeproj`, set Development Team, enable Sign in with Apple / iCloud if used
+2. Open `ios/DocScan.xcodeproj`, set Development Team, enable iCloud if used (no Sign in with Apple for MVP — device ID only)
 3. Archive in Xcode → Distribute App → App Store Connect / TestFlight
 4. Optional CI with ASC API key (`.p8` gitignored):
 

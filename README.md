@@ -68,11 +68,12 @@ Cloudflare Tunnel: set `CLOUDFLARE_TUNNEL_TOKEN` and use the `tunnel` service (s
 
 ## Product constraints (do not drift)
 
-- Free: **5 page commits / UTC day**; Pro: **$1/mo**, **$2/3mo**, **$6/yr**
+- Free: **5 page commits / UTC day** + banner ads; Pro: **$1/mo**, **$2/3mo**, **$6/yr** (unlimited + ad-free)
 - Custom camera + import + 7-day library suggest + manual preview/edit before save
 - Models **bundled** in the app (no R2 download)
 - UI strings: **English only**; OCR has auto language detection
-- Server: auth, billing entitlement, quota — **not** document image storage
+- Server: device identity (no accounts), billing entitlement, quota at Save — **not** document image storage
+- Firebase Analytics + Crashlytics; AdMob banner on Free (see `docs/ads-analytics.md`)
 - Package IDs: **`cam.docscan`**
 
 Screen mocks for UI review: [`docs/screens/`](docs/screens/).
