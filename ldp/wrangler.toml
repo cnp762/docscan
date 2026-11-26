@@ -1,0 +1,5 @@
+name = "docscan"
+compatibility_date = "2025-11-01"
+pages_build_output_dir = "dist"
+
+# Secrets (CF_API_TOKEN etc.) stay in .env / dashboard — do not put tokens here.

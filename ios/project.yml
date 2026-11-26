@@ -1,0 +1,30 @@
+# XcodeGen spec — run `xcodegen generate` when Xcode is installed.
+name: DocScan
+options:
+  bundleIdPrefix: cam
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  BASE_SDK: iphoneos
+  SWIFT_VERSION: "5.0"
+targets:
+  DocScan:
+    type: application
+    platform: iOS
+    sources:
+      - path: DocScan
+        excludes:
+          - Resources/Models/**
+      - path: DocScan/Resources/Models
+        type: folder
+        buildPhase: resources
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: cam.docscan
+      INFOPLIST_FILE: DocScan/Info.plist
+      TARGETED_DEVICE_FAMILY: "1,2"
+      CURRENT_PROJECT_VERSION: 1
+      MARKETING_VERSION: "0.1.0"
+    info:
+      path: DocScan/Info.plist
+      properties:
+        UILaunchScreen: {}

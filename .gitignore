@@ -1,0 +1,84 @@
+# Secrets & credentials
+.env
+.env.local
+.env.*.local
+*.pem
+*.p12
+*.jks
+*.keystore
+keystore.properties
+AuthKey_*.p8
+google-services.json
+GoogleService-Info.plist
+**/service-account*.json
+secrets/**
+!secrets/.gitkeep
+!secrets/README.md
+
+# Node / Astro / Wrangler
+node_modules/
+dist/
+.astro/
+.wrangler/
+.vercel/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Android
+android/**/build/
+android/.gradle/
+android/local.properties
+android/**/captures/
+android/.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# iOS
+ios/**/DerivedData/
+ios/**/Pods/
+ios/**/*.xcuserstate
+ios/**/xcuserdata/
+ios/**/*.xccheckout
+ios/**/*.moved-aside
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Python
+__pycache__/
+.venv/
+venv/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+docscan_server.egg-info/
+.coverage
+htmlcov/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# Local data / temp
+*.sqlite
+*.sqlite3
+uploads/
+export/
+*.log
+tmp/
+.temp/
+
+# CamScanner / RE artifacts (never belong in this repo)
+*.apkm
+_apkm_extract/
+jadx/

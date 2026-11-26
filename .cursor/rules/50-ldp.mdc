@@ -1,0 +1,12 @@
+---
+description: Landing page (Astro) conventions
+globs: ldp/**
+alwaysApply: false
+---
+
+# LDP
+
+- Astro static site for **docscan.cam**; English copy aligned with the app
+- Deploy with Wrangler to Cloudflare Pages
+- Only `PUBLIC_*` env in client; pricing and store badges match PRODUCT.md
+- Privacy / Terms pages required for store compliance links

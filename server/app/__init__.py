@@ -1,0 +1,1 @@
+"""DocScan API package."""

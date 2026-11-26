@@ -1,0 +1,311 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* DocScanApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* DocScanApp.swift */; };
+		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ContentView.swift */; };
+		A10000000000000000000003 /* CaptureSessionStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* CaptureSessionStub.swift */; };
+		A10000000000000000000004 /* StoreKitStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* StoreKitStub.swift */; };
+		A10000000000000000000006 /* DocScanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* DocScanEngine.swift */; };
+		A10000000000000000000007 /* VisionOcrEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* VisionOcrEngine.swift */; };
+		A10000000000000000000008 /* HeuristicTagEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* HeuristicTagEngine.swift */; };
+		A10000000000000000000009 /* ImageEnhance.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* ImageEnhance.swift */; };
+		A1000000000000000000000A /* DefaultDocScanEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* DefaultDocScanEngine.swift */; };
+		A1000000000000000000000B /* LangDetectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* LangDetectEngine.swift */; };
+		A1000000000000000000000C /* DocClassifyEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* DocClassifyEngine.swift */; };
+		A1000000000000000000000D /* SummaryEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* SummaryEngine.swift */; };
+		A1000000000000000000000E /* ImageMetadataWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* ImageMetadataWriter.swift */; };
+		A1000000000000000000000F /* DeviceCapability.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* DeviceCapability.swift */; };
+		A10000000000000000000010 /* EngineExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* EngineExecutor.swift */; };
+		A10000000000000000000011 /* WorkPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* WorkPriority.swift */; };
+		A10000000000000000000012 /* WorkQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* WorkQueue.swift */; };
+		A10000000000000000000013 /* SuggestScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* SuggestScanner.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A20000000000000000000001 /* DocScanApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocScanApp.swift; sourceTree = "<group>"; };
+		A20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* CaptureSessionStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionStub.swift; sourceTree = "<group>"; };
+		A20000000000000000000004 /* StoreKitStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitStub.swift; sourceTree = "<group>"; };
+		A20000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000000000000000000006 /* DocScanEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocScanEngine.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* VisionOcrEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionOcrEngine.swift; sourceTree = "<group>"; };
+		A20000000000000000000008 /* HeuristicTagEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeuristicTagEngine.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* ImageEnhance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageEnhance.swift; sourceTree = "<group>"; };
+		A2000000000000000000000A /* DefaultDocScanEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultDocScanEngine.swift; sourceTree = "<group>"; };
+		A2000000000000000000000B /* LangDetectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LangDetectEngine.swift; sourceTree = "<group>"; };
+		A2000000000000000000000C /* DocClassifyEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocClassifyEngine.swift; sourceTree = "<group>"; };
+		A2000000000000000000000D /* SummaryEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryEngine.swift; sourceTree = "<group>"; };
+		A2000000000000000000000E /* ImageMetadataWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageMetadataWriter.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* DeviceCapability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCapability.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* EngineExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineExecutor.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 /* WorkPriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkPriority.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* WorkQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkQueue.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* SuggestScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestScanner.swift; sourceTree = "<group>"; };
+		A30000000000000000000001 /* DocScan.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DocScan.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A40000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A40000000000000000000002 /* DocScan */,
+				A40000000000000000000005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A40000000000000000000002 /* DocScan */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000001 /* DocScanApp.swift */,
+				A20000000000000000000002 /* ContentView.swift */,
+				A20000000000000000000005 /* Info.plist */,
+				A40000000000000000000003 /* Capture */,
+				A40000000000000000000004 /* Billing */,
+				A40000000000000000000006 /* Engine */,
+			);
+			path = DocScan;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000006 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000006 /* DocScanEngine.swift */,
+				A20000000000000000000007 /* VisionOcrEngine.swift */,
+				A20000000000000000000008 /* HeuristicTagEngine.swift */,
+				A20000000000000000000009 /* ImageEnhance.swift */,
+				A2000000000000000000000A /* DefaultDocScanEngine.swift */,
+				A2000000000000000000000B /* LangDetectEngine.swift */,
+				A2000000000000000000000C /* DocClassifyEngine.swift */,
+				A2000000000000000000000D /* SummaryEngine.swift */,
+				A2000000000000000000000E /* ImageMetadataWriter.swift */,
+				A2000000000000000000000F /* DeviceCapability.swift */,
+				A20000000000000000000010 /* EngineExecutor.swift */,
+				A20000000000000000000011 /* WorkPriority.swift */,
+				A20000000000000000000012 /* WorkQueue.swift */,
+				A20000000000000000000013 /* SuggestScanner.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000003 /* Capture */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000003 /* CaptureSessionStub.swift */,
+			);
+			path = Capture;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000004 /* Billing */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000004 /* StoreKitStub.swift */,
+			);
+			path = Billing;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A30000000000000000000001 /* DocScan.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A50000000000000000000001 /* DocScan */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A70000000000000000000002 /* Build configuration list for PBXNativeTarget "DocScan" */;
+			buildPhases = (
+				A60000000000000000000001 /* Sources */,
+				A60000000000000000000002 /* Frameworks */,
+				A60000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DocScan;
+			productName = DocScan;
+			productReference = A30000000000000000000001 /* DocScan.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A80000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = A70000000000000000000001 /* Build configuration list for PBXProject "DocScan" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A40000000000000000000001;
+			productRefGroup = A40000000000000000000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A50000000000000000000001 /* DocScan */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A60000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A60000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A60000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* DocScanApp.swift in Sources */,
+				A10000000000000000000002 /* ContentView.swift in Sources */,
+				A10000000000000000000003 /* CaptureSessionStub.swift in Sources */,
+				A10000000000000000000004 /* StoreKitStub.swift in Sources */,
+				A10000000000000000000006 /* DocScanEngine.swift in Sources */,
+				A10000000000000000000007 /* VisionOcrEngine.swift in Sources */,
+				A10000000000000000000008 /* HeuristicTagEngine.swift in Sources */,
+				A10000000000000000000009 /* ImageEnhance.swift in Sources */,
+				A1000000000000000000000A /* DefaultDocScanEngine.swift in Sources */,
+				A1000000000000000000000B /* LangDetectEngine.swift in Sources */,
+				A1000000000000000000000C /* DocClassifyEngine.swift in Sources */,
+				A1000000000000000000000D /* SummaryEngine.swift in Sources */,
+				A1000000000000000000000E /* ImageMetadataWriter.swift in Sources */,
+				A1000000000000000000000F /* DeviceCapability.swift in Sources */,
+				A10000000000000000000010 /* EngineExecutor.swift in Sources */,
+				A10000000000000000000011 /* WorkPriority.swift in Sources */,
+				A10000000000000000000012 /* WorkQueue.swift in Sources */,
+				A10000000000000000000013 /* SuggestScanner.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A90000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A90000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A90000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DocScan/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = cam.docscan;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A90000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DocScan/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = cam.docscan;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A70000000000000000000001 /* Build configuration list for PBXProject "DocScan" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90000000000000000000001 /* Debug */,
+				A90000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A70000000000000000000002 /* Build configuration list for PBXNativeTarget "DocScan" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90000000000000000000003 /* Debug */,
+				A90000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A80000000000000000000001 /* Project object */;
+}

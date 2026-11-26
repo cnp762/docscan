@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: docscan
+      POSTGRES_PASSWORD: docscan
+      POSTGRES_DB: docscan
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docscan"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://docscan:docscan@db:5432/docscan
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      API_PUBLIC_HOST: https://api.docscan.cam
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Optional: cloudflared tunnel to expose api.docscan.cam
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

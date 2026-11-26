@@ -1,0 +1,12 @@
+---
+description: Server API conventions
+globs: server/**
+alwaysApply: false
+---
+
+# Server
+
+- Python FastAPI + Postgres; Docker Compose; Cloudflare Tunnel → `api.docscan.cam`
+- Endpoints: device auth, purchase verify, quota get/consume, health
+- **Do not** accept or store document image uploads in MVP
+- Migrations via Alembic; no secrets in images or compose overrides committed with real tokens

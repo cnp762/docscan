@@ -1,0 +1,14 @@
+---
+description: Android app conventions
+globs: android/**
+alwaysApply: false
+---
+
+# Android (`cam.docscan`)
+
+- Kotlin, Jetpack Compose, CameraX, Room, WorkManager
+- `applicationId` / namespace: **cam.docscan**
+- minSdk 26+; request `CAMERA` and `READ_MEDIA_IMAGES` just-in-time (see `docs/permissions.md`)
+- Import via Photo Picker; suggest feature may use `READ_MEDIA_IMAGES`
+- Play Billing for Pro; no competitor native `.so` from APK extracts
+- Keep release keystore paths in gitignored `keystore.properties`

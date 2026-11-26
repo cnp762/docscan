@@ -1,0 +1,18 @@
+---
+description: DocScan product goals and anti-drift constraints
+alwaysApply: true
+---
+
+# DocScan product rules
+
+- Brand: **DocScan**; domain **docscan.cam**; Android/iOS ID **cam.docscan**; API **api.docscan.cam**
+- Local-first: images + OCR stay on device; server = auth / entitlement / quota only
+- Free: **5 page commits per UTC day**; Pro: **$1/mo**, **$2/3mo**, **$6/yr**
+- Capture: **custom camera** (not ML Kit Doc Scanner / VNDocumentCamera as primary)
+- Import + **7-day photo library suggest** + mandatory **manual Preview/Edit** before Save
+- Export: Images, **searchable PDF**, DOCX, Print, copy OCR; Backup: Drive, iCloud (iOS), **Google Photos**
+- On-device **generative summary** and **OCR language detection** in scope; models **bundled** (no R2)
+- UI language: **English only**
+- **Engines:** rewrite native code from CS analysis — **never ship** CamScanner `.so` binaries (`libOCREngine`, `libTAGEngine*`, `libpagescanner`, `libmagicenhancer`, `libCVNN`, `libMNN` from CS, etc.)
+- **Models:** CamScanner `.data` packs may be **used after offline decrypt/normalize** into DocScan loaders; if decrypt fails, **rewrite** with commercial-OK equivalents (ONNX/Paddle/ML Kit/Vision). Do not ship opaque ciphertext without a DocScan-owned loader.
+- Prefer `docs/screens/` mocks, `docs/engines/contracts.md`, and `PRODUCT.md` over inventing new product scope

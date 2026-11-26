@@ -1,0 +1,175 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout>
+  <header class="nav">
+    <a class="brand" href="/">DocScan</a>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">docscan.cam</p>
+      <h1>DocScan</h1>
+      <p class="lede">Scan documents on your phone. OCR, search, and export — private by default.</p>
+      <div class="cta">
+        <a class="btn primary" href="#pricing">Get the app</a>
+        <a class="btn ghost" href="#features">See features</a>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="phone">
+          <div class="quad"></div>
+          <span>Auto-capture</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <h2>Built for real desks</h2>
+      <p class="section-lede">Custom camera with guiding, import from your library, and a 7-day photo suggest flow.</p>
+      <ul class="grid">
+        <li><strong>Scan &amp; guide</strong><span>Edge detect, auto-shutter, low-light hints.</span></li>
+        <li><strong>Edit by hand</strong><span>Drag corners, enhance, de-shadow, then save.</span></li>
+        <li><strong>OCR &amp; summary</strong><span>On-device language detection and generative summary.</span></li>
+        <li><strong>Export</strong><span>Images, searchable PDF, DOCX, print &amp; share.</span></li>
+        <li><strong>Backup</strong><span>Google Drive, iCloud Drive, Google Photos.</span></li>
+        <li><strong>Local-first</strong><span>Your pages stay on the device unless you back up.</span></li>
+      </ul>
+    </section>
+
+    <section id="pricing" class="section">
+      <h2>Simple pricing</h2>
+      <p class="section-lede">Free: 5 scans per day (UTC). Go Pro when you need more.</p>
+      <div class="prices">
+        <article><h3>Free</h3><p class="price">$0</p><p>5 page commits / UTC day</p></article>
+        <article class="hi"><h3>Pro monthly</h3><p class="price">$1</p><p>Unlimited scans</p></article>
+        <article><h3>Pro 3 months</h3><p class="price">$2</p><p>Unlimited scans</p></article>
+        <article><h3>Pro yearly</h3><p class="price">$6</p><p>Unlimited scans</p></article>
+      </div>
+      <p class="store-note">Billing via App Store and Google Play. Package ID <code>cam.docscan</code>.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© {new Date().getFullYear()} DocScan</span>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+  </footer>
+</BaseLayout>
+
+<style>
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .brand {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  nav { display: flex; gap: 1.25rem; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 0.95rem; }
+  .hero {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    display: grid;
+    gap: 1rem;
+  }
+  .eyebrow { color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.75rem; margin: 0; }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(3.5rem, 12vw, 6.5rem);
+    font-weight: 400;
+    line-height: 0.95;
+    margin: 0;
+  }
+  .lede { max-width: 28rem; color: var(--muted); font-size: 1.15rem; line-height: 1.5; }
+  .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; }
+  .btn {
+    display: inline-flex;
+    padding: 0.75rem 1.25rem;
+    border-radius: 999px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .btn.primary { background: var(--accent); color: #062015; }
+  .btn.ghost { border: 1px solid var(--line); color: var(--ink); }
+  .hero-visual { margin-top: 1.5rem; }
+  .phone {
+    width: min(280px, 70vw);
+    aspect-ratio: 9/16;
+    border: 1px solid var(--line);
+    border-radius: 1.5rem;
+    background: linear-gradient(160deg, #1a2820, #0e1512);
+    display: grid;
+    place-items: center;
+    position: relative;
+    animation: rise 1.2s ease both;
+  }
+  .quad {
+    width: 55%;
+    height: 35%;
+    border: 2px solid var(--accent);
+    transform: perspective(400px) rotateX(8deg);
+    box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 30%, transparent);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  .phone span { position: absolute; bottom: 1.5rem; font-size: 0.8rem; color: var(--muted); }
+  @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+  @keyframes pulse { 50% { border-color: #7dffc0; } }
+  .section { max-width: 1100px; margin: 0 auto; padding: 3rem 1.5rem; }
+  .section h2 { font-family: var(--font-display); font-size: 2.5rem; font-weight: 400; margin: 0 0 0.5rem; }
+  .section-lede { color: var(--muted); max-width: 36rem; }
+  .grid {
+    list-style: none;
+    padding: 0;
+    margin: 2rem 0 0;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+  .grid li {
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    display: grid;
+    gap: 0.35rem;
+  }
+  .grid span { color: var(--muted); font-size: 0.95rem; }
+  .prices {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    margin-top: 1.5rem;
+  }
+  .prices article {
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    background: var(--bg-elev);
+  }
+  .prices .hi { border-color: var(--accent-dim); box-shadow: 0 0 0 1px var(--accent-dim); }
+  .price { font-size: 2rem; margin: 0.25rem 0; font-family: var(--font-display); }
+  .store-note { color: var(--muted); font-size: 0.9rem; margin-top: 1.25rem; }
+  .footer {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+  }
+</style>

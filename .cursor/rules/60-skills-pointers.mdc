@@ -1,0 +1,19 @@
+---
+description: When to read local Cursor skills
+alwaysApply: true
+---
+
+# Skills pointers
+
+Read the skill file when the task matches; do not duplicate skill text into the repo.
+
+| Task | Skill path |
+|------|------------|
+| Domain terms / ADR | `/Users/pcn762/.cursor/skills/domain-modeling/SKILL.md` |
+| PRD | `/Users/pcn762/.cursor/skills/create-prd/SKILL.md` |
+| User stories | `/Users/pcn762/.cursor/skills/user-stories/SKILL.md` |
+| Implementation plans | `/Users/pcn762/.cursor/skills/writing-plans/SKILL.md` |
+| Writing for agents | `/Users/pcn762/.cursor/skills/writing-for-agents/SKILL.md` |
+| UI / LDP design | `/Users/pcn762/.cursor/skills/ui-ux-pro-max/SKILL.md` |
+| New Cursor rules | `/Users/pcn762/.cursor/skills-cursor/create-rule/SKILL.md` |
+| CamScanner RE (only if user asks) | `/Users/pcn762/Documents/docscan/.agents/skills/reverse-engineer-anything/SKILL.md` |

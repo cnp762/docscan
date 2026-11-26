@@ -1,0 +1,32 @@
+# Third-party notices — DocScan
+
+## Active runtime dependencies
+
+### Google ML Kit Text Recognition (Android)
+- Artifact: `com.google.mlkit:text-recognition`
+- Use: on-device OCR (rewrite path while CS `.data` remains encrypted)
+- License: Google ML Kit Terms of Service
+- https://developers.google.com/ml-kit/terms
+
+### Apple Vision / Core Image (iOS)
+- Use: OCR, document segmentation, image filters
+- License: Apple SDK / Xcode agreements
+
+### AndroidX / Jetpack / CameraX / Play Billing
+- Apache License 2.0 (AndroidX)
+- Play Billing: Google Play Billing Library terms
+
+### Astro / Wrangler (LDP)
+- MIT (Astro) — see `ldp/package-lock.json` for transitive licenses
+
+## CamScanner reference materials
+
+Native `.so` binaries and encrypted `.data` packs under the parent workspace `ref/` are used **for analysis only**.
+They are **not** redistributed in DocScan release artifacts. Engine code is rewritten in-repo.
+If `.data` packs are later offline-decrypted for USE, list decrypted member licenses/sources here before shipping.
+
+## Planned model pins
+
+- PaddleOCR / RapidOCR ONNX (Apache-2.0) — when added to `assets/models`
+- DocAligner-class ONNX (Apache-2.0) — when added
+- On-device summary LM — license TBD at pin time

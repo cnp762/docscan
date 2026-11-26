@@ -1,0 +1,13 @@
+---
+description: iOS app conventions
+globs: ios/**
+alwaysApply: false
+---
+
+# iOS (`cam.docscan`)
+
+- Swift, SwiftUI, AVFoundation, Vision, PDFKit
+- Bundle ID: **cam.docscan**
+- Info.plist purpose strings for Camera and Photo Library (suggest); PHPicker for manual import
+- StoreKit 2 for Pro; Sign in with Apple optional for restore
+- Never commit `.p8` ASC keys; document paths in README / `.env.example`

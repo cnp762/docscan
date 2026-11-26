@@ -1,0 +1,29 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Privacy Policy — DocScan">
+  <main class="doc">
+    <p><a href="/">← DocScan</a></p>
+    <h1>Privacy Policy</h1>
+    <p>Last updated: 2026-03-26</p>
+    <p>DocScan processes document images <strong>on your device</strong> for scanning, OCR, tagging, and summary. We do not upload your document images to DocScan servers for MVP cloud storage.</p>
+    <h2>Data we may process on our servers</h2>
+    <ul>
+      <li>Device identifiers and optional account identifiers for authentication</li>
+      <li>Subscription entitlement and purchase verification with Apple / Google</li>
+      <li>Daily scan quota counters</li>
+      <li>Minimal product analytics events (e.g. paywall views) without document content</li>
+    </ul>
+    <h2>Optional backups you choose</h2>
+    <p>If you connect Google Drive, Google Photos, or iCloud Drive, files you choose to back up are stored with those providers under their policies and the scopes you grant.</p>
+    <h2>Permissions</h2>
+    <p>Camera for scanning; photo library for the optional “last 7 days” suggestion feature; network for API, billing, and backups.</p>
+    <h2>Contact</h2>
+    <p>privacy@docscan.cam</p>
+  </main>
+</BaseLayout>
+<style>
+  .doc { max-width: 40rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; line-height: 1.6; color: var(--muted); }
+  h1, h2 { color: var(--ink); font-family: var(--font-display); font-weight: 400; }
+  a { color: var(--accent); }
+</style>

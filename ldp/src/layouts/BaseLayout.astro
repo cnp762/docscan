@@ -1,0 +1,52 @@
+---
+interface Props {
+  title?: string;
+  description?: string;
+}
+const {
+  title = 'DocScan — On-device document scanner',
+  description = 'Scan, OCR, and organize documents on your phone. Local-first. Export PDF & DOCX. Optional Drive, iCloud, and Google Photos backup.',
+} = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #0c1210;
+    --bg-elev: #151c19;
+    --ink: #e8f0ea;
+    --muted: #9aada0;
+    --accent: #3dd68c;
+    --accent-dim: #1f6b4a;
+    --line: #243029;
+    --font-sans: 'DM Sans', system-ui, sans-serif;
+    --font-display: 'Instrument Serif', Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #1a3d2e 0%, transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, #122418 0%, transparent 50%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
