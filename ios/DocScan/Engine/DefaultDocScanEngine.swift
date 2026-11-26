@@ -18,7 +18,8 @@ final class DefaultDocScanEngine: DocScanEngineProtocol {
     }
 
     func recognize(image: UIImage, quad: DocQuad?, langHint: String?) async throws -> OcrPage {
-        var page = try await VisionOcrEngine.recognize(image: image, langHint: langHint)
+        let prepared = quad.map { ImageEnhance.perspectiveWarp(image, quad: $0) } ?? image
+        var page = try await VisionOcrEngine.recognize(image: prepared, langHint: langHint)
         let lang = LangDetectEngine.detect(ocrText: page.text, hint: langHint ?? page.lang)
         page.lang = lang.lang
         page.langConfidence = lang.confidence

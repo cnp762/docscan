@@ -3,9 +3,13 @@ package cam.docscan.engine
 import cam.docscan.engine.api.OcrPage
 import cam.docscan.engine.api.PageNlpMetadata
 import cam.docscan.engine.api.SummaryMode
+import cam.docscan.engine.api.PointF
+import cam.docscan.engine.api.Quad
 import cam.docscan.engine.classify.DocClassifyEngine
+import cam.docscan.engine.enhance.BitmapEnhanceEngine
 import cam.docscan.engine.lang.LangDetectEngine
 import cam.docscan.engine.metadata.ImageMetadataWriter
+import cam.docscan.engine.ocr.MlKitOcrEngine
 import cam.docscan.engine.summary.SummaryEngine
 import cam.docscan.engine.tag.HeuristicTagEngine
 import kotlinx.coroutines.runBlocking
@@ -64,6 +68,41 @@ class HeuristicEnginesTest {
     fun langDetectChinese() {
         val r = LangDetectEngine().detect("这是一份发票文件，金额合计如下所示。")
         assertEquals("zh", r.lang)
+    }
+
+    @Test
+    fun langDetectMultilingualScripts() {
+        val engine = LangDetectEngine()
+        assertEquals("ja", engine.detect("これは請求書のサンプルテキストです。").lang)
+        assertEquals("ko", engine.detect("이것은 영수증 및 송장 문서입니다.").lang)
+        assertEquals("ar", engine.detect("هذه فاتورة ضريبية للخدمات المقدمة اليوم.").lang)
+        assertEquals("th", engine.detect("นี่คือใบแจ้งหนี้สำหรับบริการให้คำปรึกษา").lang)
+        assertEquals("hi", engine.detect("यह परामर्श सेवाओं के लिए एक चालान है।").lang)
+        assertEquals("ru", engine.detect("Это счет на оплату консультационных услуг.").lang)
+        assertEquals("el", engine.detect("Αυτό είναι ένα τιμολόγιο για συμβουλευτικές υπηρεσίες.").lang)
+        assertEquals("he", engine.detect("זוהי חשבונית מס עבור שירותי ייעוץ.").lang)
+    }
+
+    @Test
+    fun snapRotationDegreesWorks() {
+        assertEquals(0, MlKitOcrEngine.snapRotationDegrees(4f))
+        assertEquals(90, MlKitOcrEngine.snapRotationDegrees(88f))
+        assertEquals(180, MlKitOcrEngine.snapRotationDegrees(176f))
+        assertEquals(180, MlKitOcrEngine.snapRotationDegrees(-178f))
+        assertEquals(270, MlKitOcrEngine.snapRotationDegrees(-92f))
+    }
+
+    @Test
+    fun quadTargetSizeComputesBoundingEdges() {
+        val quad = Quad(
+            topLeft = PointF(100f, 100f),
+            topRight = PointF(900f, 120f),
+            bottomRight = PointF(920f, 1300f),
+            bottomLeft = PointF(80f, 1280f),
+        )
+        val (w, h) = BitmapEnhanceEngine.computeQuadTargetSize(quad)
+        assertTrue(w in 800..850)
+        assertTrue(h in 1180..1200)
     }
 
     @Test

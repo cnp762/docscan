@@ -42,6 +42,7 @@ class DefaultDocScanEngine(
     fun capability(): DeviceCapability = capability
 
     override suspend fun initialize(modelsDir: File?) {
+        detect.initialize(modelsDir)
         summary = SummaryEngine(modelsDir, capability)
         ready = true
     }
@@ -54,7 +55,7 @@ class DefaultDocScanEngine(
     }
 
     override suspend fun detectLanguage(ocrText: String, hint: String?): LangResult =
-        langDetect.detect(ocrText, hint)
+        langDetect.detectAsync(ocrText, hint)
 
     override suspend fun classifyDocument(ocrPage: OcrPage, image: Bitmap?): DocTypeResult =
         classifyEngine.classify(ocrPage)
@@ -81,6 +82,8 @@ class DefaultDocScanEngine(
         classifyEngine.autoname(ocrPage, tags)
 
     override fun close() {
+        detect.close()
+        langDetect.close()
         ocr.close()
         ready = false
     }

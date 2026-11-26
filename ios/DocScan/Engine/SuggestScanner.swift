@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import Vision
 
 struct SuggestMediaItem {
     var mediaId: String
@@ -40,6 +41,27 @@ final class SuggestCache {
 
 enum SuggestScorer {
     static func score(image: UIImage) -> Float {
+        let heuristic = heuristicScore(image: image)
+        let thumb = ImageEnhance.downscale(image, maxLongEdge: 640)
+        guard let cg = thumb.cgImage else { return heuristic }
+        let visionBoost = documentConfidence(cgImage: cg)
+        if visionBoost > 0 {
+            return min(1.0, heuristic * 0.35 + visionBoost * 0.65)
+        }
+        return heuristic * 0.75
+    }
+
+    private static func documentConfidence(cgImage: CGImage) -> Float {
+        let request = VNDetectDocumentSegmentationRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        guard (try? handler.perform([request])) != nil,
+              let obs = (request.results as? [VNRectangleObservation])?.first else {
+            return 0
+        }
+        return obs.confidence
+    }
+
+    private static func heuristicScore(image: UIImage) -> Float {
         let w = max(image.size.width, 1)
         let h = max(image.size.height, 1)
         let aspect = w / h
