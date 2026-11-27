@@ -130,7 +130,7 @@ fun HomeLibraryScreen(
         containerColor = DocScanColors.SurfaceBase,
         bottomBar = {
             Column {
-                FreeAdBannerSlot(visible = !state.isPro)
+                FreeAdBannerSlot(isPro = state.isPro)
                 FloatingBottomNavBar(
                     activeTab = state.activeTab,
                     onSelectTab = { tab ->

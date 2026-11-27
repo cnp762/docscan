@@ -19,7 +19,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import cam.docscan.DocScanApp
 import cam.docscan.engine.DocScanRuntime
-import cam.docscan.telemetry.AdMobBanner
 import cam.docscan.telemetry.AnalyticsTracker
 import cam.docscan.ui.screens.BackupScreen
 import cam.docscan.ui.screens.CameraCaptureScreen

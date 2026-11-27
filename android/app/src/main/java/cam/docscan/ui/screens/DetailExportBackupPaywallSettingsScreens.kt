@@ -142,7 +142,7 @@ fun DocumentDetailScreen(
                 onBack = onBack,
             )
         },
-        bottomBar = { FreeAdBannerSlot(visible = !state.isPro) },
+        bottomBar = { FreeAdBannerSlot(isPro = state.isPro) },
     ) { inner ->
         Column(
             modifier = Modifier
@@ -348,7 +348,7 @@ fun SearchFilterScreen(
     Scaffold(
         containerColor = DocScanColors.SurfaceBase,
         topBar = { DocTopBar(title = "Search", onBack = onBack) },
-        bottomBar = { FreeAdBannerSlot(visible = !state.isPro) },
+        bottomBar = { FreeAdBannerSlot(isPro = state.isPro) },
     ) { inner ->
         Column(
             modifier = Modifier.fillMaxSize().padding(inner).padding(horizontal = 16.dp),

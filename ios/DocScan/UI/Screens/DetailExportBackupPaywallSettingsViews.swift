@@ -129,7 +129,7 @@ struct DocumentDetailView: View {
                 }
             }
 
-            FreeAdBannerSlot(visible: !state.isPro)
+            FreeAdBannerSlot(isPro: state.isPro)
         }
         .background(DocScanColors.surfaceBase.ignoresSafeArea())
         .alert("Add Tag", isPresented: $showAddTag) {
@@ -252,7 +252,7 @@ struct SearchFilterView: View {
                 .padding(.horizontal, 16)
             }
 
-            FreeAdBannerSlot(visible: !state.isPro)
+            FreeAdBannerSlot(isPro: state.isPro)
         }
         .background(DocScanColors.surfaceBase.ignoresSafeArea())
     }

@@ -237,7 +237,7 @@ struct HomeLibraryView: View {
 
             // Free AdMob banner + 3-tab bottom bar (Search lives in Library header)
             VStack(spacing: 0) {
-                FreeAdBannerSlot(visible: !state.isPro)
+                FreeAdBannerSlot(isPro: state.isPro)
                 HStack {
                     FloatingTabButton(icon: "folder.fill", label: "Library", selected: state.activeTab == .library) {
                         state.activeTab = .library

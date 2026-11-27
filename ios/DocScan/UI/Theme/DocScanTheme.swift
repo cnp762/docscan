@@ -85,13 +85,11 @@ struct QuotaChipView: View {
 }
 
 struct FreeAdBannerSlot: View {
-    var visible: Bool
+    var isPro: Bool
 
     var body: some View {
-        if visible {
-            AdMobBannerView(isPro: false)
-                .padding(.vertical, 4)
-        }
+        AdMobBannerView(isPro: isPro)
+            .padding(.vertical, 4)
     }
 }
 

@@ -167,12 +167,11 @@ fun DocTopBar(
 
 @Composable
 fun FreeAdBannerSlot(
-    visible: Boolean,
+    isPro: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    if (!visible) return
     cam.docscan.telemetry.AdMobBanner(
-        isPro = false,
+        isPro = isPro,
         modifier = modifier.padding(vertical = 4.dp),
     )
 }
