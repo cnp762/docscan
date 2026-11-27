@@ -20,7 +20,6 @@ enum DocScanRoute: Equatable {
 enum MainTab: String, CaseIterable {
     case library = "Library"
     case scan = "Scan"
-    case search = "Search"
     case `import` = "Import"
 }
 
@@ -172,7 +171,7 @@ final class DocScanAppState: ObservableObject {
     @Published var defaultEnhance: EnhanceFilterMode = .docClean
     @Published var autoRenameEnabled: Bool = true
     @Published var backgroundProcessingEnabled: Bool = true
-    @Published var notificationsEnabled: Bool = true
+    @Published var notificationsEnabled: Bool = false
 
     @Published var draftPages: [DraftPageItem] = []
     @Published var activeDraftIndex: Int = 0

@@ -112,7 +112,7 @@ fun OnboardingScreen(
                         modifier = Modifier.size(14.dp),
                     )
                     Text(
-                        text = "100% Local-First Engine",
+                        text = "100% private",
                         style = MaterialTheme.typography.labelMedium,
                         color = DocScanColors.ScanGlow,
                     )
@@ -127,7 +127,7 @@ fun OnboardingScreen(
                 color = DocScanColors.TextPrimary,
             )
             Text(
-                text = "Fast document flattening and OCR without sending a single byte to an external server.",
+                text = "We never send your documents or their contents to DocScan.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = DocScanColors.TextSecondary,
             )
@@ -142,8 +142,8 @@ fun OnboardingScreen(
         OnboardingFeatureCard(
             icon = Icons.Rounded.DocumentScanner,
             badge = "Offline",
-            title = "OCR & on-device search",
-            subtitle = "Instant multi-language text extraction. Search within receipts, contracts, and notes.",
+            title = "OCR & search",
+            subtitle = "Find text inside receipts, contracts, and notes — on your phone.",
         )
         OnboardingFeatureCard(
             icon = Icons.Rounded.PictureAsPdf,
@@ -303,7 +303,7 @@ fun CameraPermissionScreen(
                 color = DocScanColors.TextSecondary,
             )
 
-            LocalFirstTrustBanner("100% on-device processing · No photos sent to remote servers")
+            LocalFirstTrustBanner("Documents never leave your phone. We never send your scans to DocScan.")
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 DocCardSurface(modifier = Modifier.weight(1f)) {
@@ -383,7 +383,7 @@ fun PhotoPermissionScreen(
             color = DocScanColors.TextSecondary,
         )
 
-        LocalFirstTrustBanner("All file parsing, perspective correction, and OCR run strictly on-device.")
+        LocalFirstTrustBanner("Scanning and OCR stay on your phone. Backup only if you connect an account.")
 
         OnboardingFeatureCard(
             icon = Icons.Rounded.FolderOpen,

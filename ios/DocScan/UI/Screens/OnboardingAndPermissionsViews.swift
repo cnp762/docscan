@@ -27,7 +27,7 @@ struct OnboardingView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.shield.fill")
                             .font(.system(size: 12))
-                        Text("100% Local-First Engine")
+                        Text("100% private")
                             .font(.caption.weight(.medium))
                     }
                     .foregroundStyle(DocScanColors.scanGlow)
@@ -42,13 +42,13 @@ struct OnboardingView: View {
                     Text("Scan documents on your phone.\nPrivate by default.")
                         .font(.title.weight(.bold))
                         .foregroundStyle(DocScanColors.textPrimary)
-                    Text("Fast document flattening and OCR without sending a single byte to an external server.")
+                    Text("We never send your documents or their contents to DocScan.")
                         .font(.subheadline)
                         .foregroundStyle(DocScanColors.textSecondary)
                 }
 
                 OnboardingFeatureCard(icon: "crop", badge: "Fast", title: "Auto-capture", subtitle: "Real-time boundary tracking, perspective correction & shadow removal in milliseconds.")
-                OnboardingFeatureCard(icon: "doc.text.viewfinder", badge: "Offline", title: "OCR & on-device search", subtitle: "Instant multi-language text extraction. Search within receipts, contracts, and notes.")
+                OnboardingFeatureCard(icon: "doc.text.viewfinder", badge: "Private", title: "OCR & search", subtitle: "Find text inside receipts, contracts, and notes — on your phone.")
                 OnboardingFeatureCard(icon: "doc.richtext", badge: "Vectorized", title: "Export PDF & DOC", subtitle: "Generate lightweight, searchable PDF, DOCX, and JPEG archives ready to share.")
                 OnboardingFeatureCard(icon: "checkmark.seal", badge: "No watermark", title: "Free Forever", subtitle: "Zero forced watermarks on exported PDFs or docs. Core offline scanning remains free.")
 
@@ -171,7 +171,7 @@ struct CameraPermissionView: View {
                 .font(.subheadline)
                 .foregroundStyle(DocScanColors.textSecondary)
 
-            LocalFirstTrustBanner(text: "100% on-device processing · No photos sent to remote servers")
+            LocalFirstTrustBanner(text: "Documents never leave your phone. We never send your scans to DocScan.")
 
             HStack(spacing: 10) {
                 DocCardSurface {
@@ -235,7 +235,7 @@ struct PhotoPermissionView: View {
                     .font(.subheadline)
                     .foregroundStyle(DocScanColors.textSecondary)
 
-                LocalFirstTrustBanner(text: "All file parsing, perspective correction, and OCR run strictly on-device.")
+                LocalFirstTrustBanner(text: "Scanning and OCR stay on your phone. Backup only if you connect an account.")
 
                 OnboardingFeatureCard(icon: "folder.fill", badge: "Direct", title: "Direct Photo & File Import", subtitle: "Select forms, receipts, invoices, and high-res images directly from your device.")
                 OnboardingFeatureCard(icon: "sparkles", badge: "7 Days", title: "Smart 7-Day Auto Discovery", subtitle: "Library Suggest finds document-like snapshots taken recently, skipping selfies and scenery.")

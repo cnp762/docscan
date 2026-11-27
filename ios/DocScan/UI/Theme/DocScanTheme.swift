@@ -84,8 +84,30 @@ struct QuotaChipView: View {
     }
 }
 
+struct FreeAdBannerSlot: View {
+    var visible: Bool
+
+    var body: some View {
+        if visible {
+            Text("Ad · Free plan")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(DocScanColors.textMuted)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(DocScanColors.surfaceOverlay)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(DocScanColors.borderSubtle, lineWidth: 1)
+                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+        }
+    }
+}
+
 struct LocalFirstTrustBanner: View {
-    var text: String = "100% local-first · Documents never leave your phone"
+    var text: String = "Documents never leave your phone. We never send your scans to DocScan."
 
     var body: some View {
         HStack(spacing: 8) {

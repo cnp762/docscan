@@ -96,6 +96,7 @@ import cam.docscan.ui.components.DocCardSurface
 import cam.docscan.ui.components.DocTopBar
 import cam.docscan.ui.components.FilterMatrixBar
 import cam.docscan.ui.components.InteractiveQuadOverlay
+import cam.docscan.ui.components.FreeAdBannerSlot
 import cam.docscan.ui.components.LocalFirstTrustBanner
 import cam.docscan.ui.components.QuotaChip
 import cam.docscan.ui.state.CaptureMode
@@ -128,18 +129,20 @@ fun HomeLibraryScreen(
     Scaffold(
         containerColor = DocScanColors.SurfaceBase,
         bottomBar = {
-            FloatingBottomNavBar(
-                activeTab = state.activeTab,
-                onSelectTab = { tab ->
-                    state.activeTab = tab
-                    when (tab) {
-                        MainTab.LIBRARY -> state.currentRoute = DocScanRoute.HOME_LIBRARY
-                        MainTab.SCAN -> state.startNewCaptureSession()
-                        MainTab.SEARCH -> state.currentRoute = DocScanRoute.SEARCH_FILTER
-                        MainTab.IMPORT -> onOpenImport()
-                    }
-                },
-            )
+            Column {
+                FreeAdBannerSlot(visible = !state.isPro)
+                FloatingBottomNavBar(
+                    activeTab = state.activeTab,
+                    onSelectTab = { tab ->
+                        state.activeTab = tab
+                        when (tab) {
+                            MainTab.LIBRARY -> state.currentRoute = DocScanRoute.HOME_LIBRARY
+                            MainTab.SCAN -> state.startNewCaptureSession()
+                            MainTab.IMPORT -> onOpenImport()
+                        }
+                    },
+                )
+            }
         },
     ) { inner ->
         LazyColumn(
@@ -485,12 +488,6 @@ private fun FloatingBottomNavBar(
                 onClick = { onSelectTab(MainTab.SCAN) },
             )
             NavTabItem(
-                icon = Icons.Rounded.Search,
-                label = "Search",
-                selected = activeTab == MainTab.SEARCH,
-                onClick = { onSelectTab(MainTab.SEARCH) },
-            )
-            NavTabItem(
                 icon = Icons.Rounded.PhotoLibrary,
                 label = "Import",
                 selected = activeTab == MainTab.IMPORT,
@@ -588,7 +585,7 @@ fun LibrarySuggestScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                LocalFirstTrustBanner("DocScan analyzed recent photos on-device. Select photos to import cleanly.")
+                LocalFirstTrustBanner("Photos stay on your phone. Select the ones that look like documents.")
             }
             item {
                 Row(

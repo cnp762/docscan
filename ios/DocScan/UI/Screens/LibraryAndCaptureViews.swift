@@ -235,33 +235,32 @@ struct HomeLibraryView: View {
                 .padding(.bottom, 96)
             }
 
-            // Floating 4-tab bottom bar
-            HStack {
-                FloatingTabButton(icon: "folder.fill", label: "Library", selected: state.activeTab == .library) {
-                    state.activeTab = .library
-                    state.route = .homeLibrary
+            // Free AdMob banner + 3-tab bottom bar (Search lives in Library header)
+            VStack(spacing: 0) {
+                FreeAdBannerSlot(visible: !state.isPro)
+                HStack {
+                    FloatingTabButton(icon: "folder.fill", label: "Library", selected: state.activeTab == .library) {
+                        state.activeTab = .library
+                        state.route = .homeLibrary
+                    }
+                    FloatingTabButton(icon: "doc.viewfinder", label: "Scan", selected: state.activeTab == .scan, highlight: true) {
+                        state.activeTab = .scan
+                        state.startNewCaptureSession()
+                    }
+                    FloatingTabButton(icon: "photo.on.rectangle", label: "Import", selected: state.activeTab == .import) {
+                        state.activeTab = .import
+                        onOpenImport()
+                    }
                 }
-                FloatingTabButton(icon: "doc.viewfinder", label: "Scan", selected: state.activeTab == .scan, highlight: true) {
-                    state.activeTab = .scan
-                    state.startNewCaptureSession()
-                }
-                FloatingTabButton(icon: "magnifyingglass", label: "Search", selected: state.activeTab == .search) {
-                    state.activeTab = .search
-                    state.route = .searchFilter
-                }
-                FloatingTabButton(icon: "photo.on.rectangle", label: "Import", selected: state.activeTab == .import) {
-                    state.activeTab = .import
-                    onOpenImport()
-                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.ultraThinMaterial)
+                .background(DocScanColors.surfaceOverlay.opacity(0.85))
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(DocScanColors.borderMedium, lineWidth: 1))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(.ultraThinMaterial)
-            .background(DocScanColors.surfaceOverlay.opacity(0.85))
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(DocScanColors.borderMedium, lineWidth: 1))
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
         }
         .background(DocScanColors.surfaceBase.ignoresSafeArea())
     }
@@ -317,7 +316,7 @@ struct LibrarySuggestView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
-                    LocalFirstTrustBanner(text: "DocScan analyzed recent photos on-device. Select photos to import cleanly.")
+                    LocalFirstTrustBanner(text: "Photos stay on your phone. Select the ones that look like documents.")
 
                     HStack {
                         Button {

@@ -95,6 +95,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cam.docscan.ui.components.DocCardSurface
 import cam.docscan.ui.components.DocTopBar
+import cam.docscan.ui.components.FreeAdBannerSlot
 import cam.docscan.ui.components.LocalFirstTrustBanner
 import cam.docscan.ui.components.OcrInspectionCard
 import cam.docscan.ui.state.DocScanAppState
@@ -141,6 +142,7 @@ fun DocumentDetailScreen(
                 onBack = onBack,
             )
         },
+        bottomBar = { FreeAdBannerSlot(visible = !state.isPro) },
     ) { inner ->
         Column(
             modifier = Modifier
@@ -167,7 +169,7 @@ fun DocumentDetailScreen(
                     ) {
                         Icon(Icons.Rounded.Description, contentDescription = null, tint = DocScanColors.ScanGlow, modifier = Modifier.size(42.dp))
                         Text(doc.name, style = MaterialTheme.typography.titleMedium, color = DocScanColors.TextPrimary)
-                        Text("Local-first scan · Ready for export", style = MaterialTheme.typography.bodySmall, color = DocScanColors.TextSecondary)
+                        Text("Ready for export · Private on this phone", style = MaterialTheme.typography.bodySmall, color = DocScanColors.TextSecondary)
                     }
                 }
             }
@@ -345,7 +347,8 @@ fun SearchFilterScreen(
 
     Scaffold(
         containerColor = DocScanColors.SurfaceBase,
-        topBar = { DocTopBar(title = "Search & Full-Text OCR", onBack = onBack) },
+        topBar = { DocTopBar(title = "Search", onBack = onBack) },
+        bottomBar = { FreeAdBannerSlot(visible = !state.isPro) },
     ) { inner ->
         Column(
             modifier = Modifier.fillMaxSize().padding(inner).padding(horizontal = 16.dp),
@@ -393,7 +396,7 @@ fun SearchFilterScreen(
                 )
             }
 
-            Text("${results.size} result(s) in on-device OCR index", style = MaterialTheme.typography.labelMedium, color = DocScanColors.TextSecondary)
+            Text("${results.size} result(s)", style = MaterialTheme.typography.labelMedium, color = DocScanColors.TextSecondary)
 
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 24.dp),
@@ -553,7 +556,7 @@ fun ExportShareScreen(
                         Icon(Icons.Rounded.Lock, contentDescription = null, tint = DocScanColors.ScanGlow)
                         Column {
                             Text("Encrypt with Password", style = MaterialTheme.typography.titleMedium, color = DocScanColors.TextPrimary)
-                            Text("AES-256 local-first security", style = MaterialTheme.typography.bodySmall, color = DocScanColors.TextSecondary)
+                            Text("Optional password · Stored only on this device", style = MaterialTheme.typography.bodySmall, color = DocScanColors.TextSecondary)
                         }
                     }
                     Switch(
@@ -608,7 +611,7 @@ fun BackupScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            LocalFirstTrustBanner("Image-only backup: DocScan backs up scanned page images directly to your chosen Google account. Zero DocScan servers involved.")
+            LocalFirstTrustBanner("Backup sends page images only to accounts you connect. We never send your scans to DocScan.")
 
             Text("Connected Clouds", style = MaterialTheme.typography.labelLarge, color = DocScanColors.TextPrimary)
 

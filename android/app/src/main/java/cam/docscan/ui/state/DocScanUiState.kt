@@ -37,7 +37,7 @@ enum class DocScanRoute {
     SETTINGS,
 }
 
-enum class MainTab { LIBRARY, SCAN, SEARCH, IMPORT }
+enum class MainTab { LIBRARY, SCAN, IMPORT }
 
 enum class CaptureMode { SINGLE, BATCH }
 
@@ -115,7 +115,7 @@ class DocScanAppState(
     var defaultEnhance by mutableStateOf(EnhancePreset.DOCUMENT)
     var autoRenameEnabled by mutableStateOf(true)
     var backgroundProcessingEnabled by mutableStateOf(true)
-    var notificationsEnabled by mutableStateOf(true)
+    var notificationsEnabled by mutableStateOf(false)
 
     val draftPages = mutableStateListOf<DraftPage>()
     var activeDraftIndex by mutableStateOf(0)

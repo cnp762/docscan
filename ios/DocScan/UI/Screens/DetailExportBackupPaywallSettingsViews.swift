@@ -38,7 +38,7 @@ struct DocumentDetailView: View {
                                 Text(doc.name)
                                     .font(.headline)
                                     .foregroundStyle(DocScanColors.textPrimary)
-                                Text("Local-first scan · Ready for export")
+                                Text("Ready for export · Private on this phone")
                                     .font(.caption)
                                     .foregroundStyle(DocScanColors.textSecondary)
                             }
@@ -128,6 +128,8 @@ struct DocumentDetailView: View {
                     .padding(16)
                 }
             }
+
+            FreeAdBannerSlot(visible: !state.isPro)
         }
         .background(DocScanColors.surfaceBase.ignoresSafeArea())
         .alert("Add Tag", isPresented: $showAddTag) {
@@ -189,7 +191,7 @@ struct SearchFilterView: View {
                         .background(DocScanColors.surfaceCard)
                         .clipShape(Circle())
                 }
-                Text("Search & Full-Text OCR").font(.headline).foregroundStyle(DocScanColors.textPrimary)
+                Text("Search").font(.headline).foregroundStyle(DocScanColors.textPrimary)
                 Spacer()
             }
             .padding(.horizontal, 16)
@@ -249,6 +251,8 @@ struct SearchFilterView: View {
                 }
                 .padding(.horizontal, 16)
             }
+
+            FreeAdBannerSlot(visible: !state.isPro)
         }
         .background(DocScanColors.surfaceBase.ignoresSafeArea())
     }
@@ -321,7 +325,7 @@ struct ExportShareView: View {
                         Toggle(isOn: $state.exportEncryptPassword) {
                             VStack(alignment: .leading) {
                                 Text("Encrypt with Password").font(.subheadline.weight(.semibold)).foregroundStyle(DocScanColors.textPrimary)
-                                Text("AES-256 local-first security").font(.caption).foregroundStyle(DocScanColors.textSecondary)
+                                Text("Optional password · Stored only on this device").font(.caption).foregroundStyle(DocScanColors.textSecondary)
                             }
                         }
                         .tint(DocScanColors.scanGlow)
@@ -390,7 +394,7 @@ struct BackupView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    LocalFirstTrustBanner(text: "Image-only backup: DocScan backs up scanned page images directly to your personal cloud accounts. Zero DocScan servers involved.")
+                    LocalFirstTrustBanner(text: "Backup sends page images only to accounts you connect. We never send your scans to DocScan.")
 
                     Text("Connected Clouds").font(.subheadline.weight(.semibold)).foregroundStyle(DocScanColors.textPrimary)
 
