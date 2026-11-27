@@ -115,6 +115,11 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {
@@ -128,9 +133,9 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-    implementation("androidx.camera:camera-camera2:1.4.1")
-    implementation("androidx.camera:camera-lifecycle:1.4.1")
-    implementation("androidx.camera:camera-view:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
 
     // Persistence (Room + Security)
     val roomVersion = "2.6.1"
@@ -160,7 +165,7 @@ dependencies {
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
     implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
     implementation("com.google.mlkit:language-id:17.0.6")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
