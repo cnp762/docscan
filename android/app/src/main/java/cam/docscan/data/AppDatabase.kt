@@ -35,6 +35,7 @@ data class BatchEntity(
 
 interface PageRepository {
     suspend fun all(): List<PageEntity>
+    fun observeAll(): kotlinx.coroutines.flow.Flow<List<PageEntity>>
     suspend fun insert(page: PageEntity)
     suspend fun upsertBatch(batch: BatchEntity)
     suspend fun search(query: String): List<PageEntity>
@@ -45,12 +46,20 @@ interface PageRepository {
 class InMemoryPageRepository : PageRepository {
     private val pages = mutableListOf<PageEntity>()
     private val batches = mutableMapOf<String, BatchEntity>()
+    private val pagesFlow = kotlinx.coroutines.flow.MutableStateFlow<List<PageEntity>>(emptyList())
+
+    private fun publish() {
+        pagesFlow.value = pages.sortedByDescending { it.createdAt }
+    }
 
     override suspend fun all(): List<PageEntity> = pages.sortedByDescending { it.createdAt }
+
+    override fun observeAll(): kotlinx.coroutines.flow.Flow<List<PageEntity>> = pagesFlow
 
     override suspend fun insert(page: PageEntity) {
         pages.removeAll { it.id == page.id }
         pages += page
+        publish()
     }
 
     override suspend fun upsertBatch(batch: BatchEntity) {
@@ -71,10 +80,12 @@ class InMemoryPageRepository : PageRepository {
 
     override suspend fun deletePage(id: String) {
         pages.removeAll { it.id == id }
+        publish()
     }
 
     override suspend fun clearAll() {
         pages.clear()
         batches.clear()
+        publish()
     }
 }

@@ -2,6 +2,8 @@ package cam.docscan.ui.state
 
 import android.app.Activity
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -17,16 +19,16 @@ import cam.docscan.data.remote.DocScanApiClient
 import cam.docscan.data.remote.QuotaConsumeResult
 import cam.docscan.engine.DocScanRuntime
 import cam.docscan.engine.api.EnhancePreset
-import cam.docscan.engine.api.OcrPage
-import cam.docscan.engine.api.SummaryMode
-import cam.docscan.engine.classify.DocClassifyEngine
-import cam.docscan.engine.lang.LangDetectEngine
-import cam.docscan.engine.summary.SummaryEngine
+import cam.docscan.engine.api.PointF
+import cam.docscan.engine.api.Quad
 import cam.docscan.export.ExportQualityLevel
 import cam.docscan.export.ExportServices
 import cam.docscan.telemetry.AnalyticsTracker
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.util.UUID
@@ -113,13 +115,12 @@ class DocScanAppState(
 
     var isPro by mutableStateOf(false)
     var selectedPlan by mutableStateOf(ProPlan.YEARLY)
-    var quotaUsedToday by mutableStateOf(3)
+    var quotaUsedToday by mutableStateOf(0)
     var quotaUtcDay by mutableStateOf(LocalDate.now(ZoneOffset.UTC).toString())
 
     var cameraPermissionGranted by mutableStateOf(false)
     var photoPermissionGranted by mutableStateOf(false)
 
-    // Scan & Review state
     var captureMode by mutableStateOf(CaptureMode.BATCH)
     var autoCaptureEnabled by mutableStateOf(true)
     var defaultEnhance by mutableStateOf(EnhancePreset.DOCUMENT)
@@ -131,14 +132,12 @@ class DocScanAppState(
     var activeDraftIndex by mutableStateOf(0)
     var editingDocumentId by mutableStateOf<String?>(null)
 
-    // Library & Detail state
     val documents = mutableStateListOf<PageEntity>()
     var selectedDocumentId by mutableStateOf<String?>(null)
     var selectedCategoryFilter by mutableStateOf("All")
     var searchQuery by mutableStateOf("")
     var searchOnlyTagged by mutableStateOf(false)
 
-    // Suggest state
     val suggestCandidates = mutableStateListOf(
         SuggestCandidate("sug-1", "Receipt", "Blue Bottle Coffee", "Yesterday · $14.20", 98, true, true),
         SuggestCandidate("sug-2", "Contract", "NDA Addendum P.1", "2 days ago · Legal", 94, true, true),
@@ -147,24 +146,19 @@ class DocScanAppState(
         SuggestCandidate("sug-5", "Scene", "Coastline sunset", "5 days ago", 5, false, false),
     )
 
-    // Backup state (Android: Google Drive + Google Photos only; images only)
     var googleDriveConnected by mutableStateOf(false)
     var googlePhotosConnected by mutableStateOf(false)
     var backupWifiOnly by mutableStateOf(true)
     var backupEntireLibrary by mutableStateOf(true)
     var lastSyncMessage by mutableStateOf("Not backed up yet")
 
-    // Export state
     var exportFormat by mutableStateOf(ExportFormat.PDF)
     var exportQuality by mutableStateOf(ExportQuality.STANDARD)
     var exportEncryptPassword by mutableStateOf(false)
     var exportPassword by mutableStateOf("")
 
     var statusBanner by mutableStateOf<String?>(null)
-
-    private val langEngine = LangDetectEngine()
-    private val classifyEngine = DocClassifyEngine()
-    private val summaryEngine = SummaryEngine()
+    var isCapturing by mutableStateOf(false)
 
     private val identityStore = DeviceIdentityStore(context)
     val apiClient = DocScanApiClient(identity = identityStore)
@@ -182,13 +176,17 @@ class DocScanAppState(
         googleDriveConnected = cloudBackup.getSignedInAccount() != null
         quotaUsedToday = 0
         scope.launch {
-            val saved = runtime.repo.all()
-            if (saved.isNotEmpty()) {
+            runtime.repo.observeAll().collect { pages ->
                 documents.clear()
-                documents.addAll(saved)
-            } else {
-                seedInitialDocuments()
+                documents.addAll(pages)
+                if (selectedDocumentId == null) {
+                    selectedDocumentId = pages.firstOrNull()?.id
+                } else if (pages.none { it.id == selectedDocumentId }) {
+                    selectedDocumentId = pages.firstOrNull()?.id
+                }
             }
+        }
+        scope.launch {
             apiClient.ensureRegistered()
             syncQuotaFromServer()
         }
@@ -231,11 +229,19 @@ class DocScanAppState(
         currentRoute = if (cameraPermissionGranted) DocScanRoute.CAPTURE else DocScanRoute.CAMERA_PERMISSION
     }
 
-    fun addCapturedPage(title: String = "Scan ${draftPages.size + 1}") {
+    fun addCapturedPage(
+        imagePath: String,
+        corners: List<Offset> = DraftPage.defaultQuad(),
+        title: String = "Scan ${draftPages.size + 1}",
+        pageId: String = UUID.randomUUID().toString(),
+    ) {
+        if (imagePath.isBlank()) return
         draftPages += DraftPage(
+            id = pageId,
             title = title,
+            imagePath = imagePath,
             enhanceMode = defaultEnhance,
-            ocrText = "DOCSCAN CAPTURE #${draftPages.size + 1}\nProcessed locally on-device.",
+            corners = corners,
         )
         activeDraftIndex = draftPages.lastIndex
     }
@@ -244,29 +250,35 @@ class DocScanAppState(
         if (uris.isEmpty()) return
         editingDocumentId = null
         draftPages.clear()
-        uris.forEachIndexed { idx, uri ->
-            draftPages += DraftPage(
-                title = "Imported Page ${idx + 1}",
-                sourceUri = uri,
-                imagePath = uri.toString(),
-                enhanceMode = defaultEnhance,
-                ocrText = "Imported image ${uri.lastPathSegment ?: idx + 1}\nReady for perspective crop & OCR.",
-            )
+        scope.launch {
+            uris.forEachIndexed { idx, uri ->
+                val pageId = UUID.randomUUID().toString()
+                val file = withContext(Dispatchers.IO) {
+                    fileStorage.copyUriToPageFile(pageId, uri)
+                }
+                draftPages += DraftPage(
+                    id = pageId,
+                    title = "Imported Page ${idx + 1}",
+                    sourceUri = uri,
+                    imagePath = file?.absolutePath.orEmpty(),
+                    enhanceMode = defaultEnhance,
+                )
+            }
+            activeDraftIndex = 0
+            currentRoute = DocScanRoute.REVIEW_EDIT
         }
-        activeDraftIndex = 0
-        currentRoute = DocScanRoute.REVIEW_EDIT
     }
 
     fun importSelectedSuggestions() {
         val chosen = suggestCandidates.filter { it.selected }
         if (chosen.isEmpty()) return
+        // Suggest media provider still stubbed — keep as review placeholders without fake OCR.
         editingDocumentId = null
         draftPages.clear()
         chosen.forEach { item ->
             draftPages += DraftPage(
                 title = item.title,
                 enhanceMode = defaultEnhance,
-                ocrText = "${item.category}: ${item.title}\n${item.subtitle}",
             )
         }
         activeDraftIndex = 0
@@ -288,8 +300,7 @@ class DocScanAppState(
     }
 
     /**
-     * Authoritative Save step: enforces UTC daily quota for new pages via server POST /v1/quota/consume
-     * (re-edits are free). Returns true if save flow started, false if blocked locally by free quota.
+     * Authoritative Save: quota gate then [DocumentPipeline.enqueuePage] for real OCR/NLP.
      */
     fun commitDraftPages(): Boolean {
         refreshUtcQuotaIfNeeded()
@@ -332,47 +343,60 @@ class DocScanAppState(
                 val existing = documents.firstOrNull { it.id == targetEditId }
                 val first = snapshot.first()
                 if (existing != null) {
-                    val updated = existing.copy(
-                        name = first.title,
-                        ocrText = first.ocrText.ifBlank { existing.ocrText },
-                    )
-                    runtime.repo.insert(updated)
-                    val idx = documents.indexOfFirst { it.id == targetEditId }
-                    if (idx >= 0) documents[idx] = updated
+                    val pathChanged = first.imagePath.isNotBlank() && first.imagePath != existing.imagePath
+                    if (pathChanged || first.enhanceMode != defaultEnhance) {
+                        val bitmap = withContext(Dispatchers.IO) { decodeBitmap(first.imagePath) }
+                        if (bitmap != null) {
+                            val quad = cornersToQuad(first.corners, bitmap.width, bitmap.height)
+                            runtime.pipeline.enqueuePage(
+                                image = bitmap,
+                                batchId = existing.batchId,
+                                quad = quad,
+                                preset = first.enhanceMode,
+                                imagePath = first.imagePath.ifBlank { existing.imagePath },
+                                source = existing.source,
+                                sortIndex = existing.sortIndex,
+                                pageId = existing.id,
+                                freshScan = false,
+                                needDetect = false,
+                                needEnhance = first.enhanceMode != EnhancePreset.ORIGINAL,
+                            )
+                        }
+                    } else {
+                        runtime.repo.insert(existing.copy(name = first.title))
+                    }
                 }
             } else {
                 val batchId = if (snapshot.size > 1) UUID.randomUUID().toString() else null
+                var firstId: String? = null
                 snapshot.forEachIndexed { idx, draft ->
-                    val persistedPath = when {
-                        draft.sourceUri != null ->
-                            fileStorage.copyUriToPageFile(draft.id, draft.sourceUri)?.absolutePath ?: draft.imagePath
-                        else -> draft.imagePath
+                    val persistedPath = withContext(Dispatchers.IO) {
+                        when {
+                            draft.imagePath.isNotBlank() && File(draft.imagePath).exists() -> draft.imagePath
+                            draft.sourceUri != null ->
+                                fileStorage.copyUriToPageFile(draft.id, draft.sourceUri)?.absolutePath.orEmpty()
+                            else -> draft.imagePath
+                        }
                     }
-                    val ocr = draft.ocrText.ifBlank { "Scanned document: ${draft.title}" }
-                    val lang = langEngine.detect(ocr)
-                    val cls = classifyEngine.classify(OcrPage(text = ocr, title = draft.title))
-                    val sum = summaryEngine.summarize(ocr, SummaryMode.EXTRACTIVE)
-                    val entity = PageEntity(
-                        id = draft.id,
+                    if (persistedPath.isBlank()) return@forEachIndexed
+                    val bitmap = withContext(Dispatchers.IO) { decodeBitmap(persistedPath) } ?: return@forEachIndexed
+                    val quad = cornersToQuad(draft.corners, bitmap.width, bitmap.height)
+                    val work = runtime.pipeline.enqueuePage(
+                        image = bitmap,
                         batchId = batchId,
-                        name = draft.title,
-                        source = if (draft.sourceUri != null) "import" else "camera",
+                        quad = quad,
+                        preset = draft.enhanceMode,
                         imagePath = persistedPath,
-                        createdAt = System.currentTimeMillis() - idx * 1000L,
-                        ocrText = ocr,
-                        ocrLang = lang.lang,
-                        ocrLangConfidence = lang.confidence,
-                        docType = cls.docType,
-                        docTypeConfidence = cls.confidence,
-                        tags = cls.tags,
-                        summary = sum.text,
-                        summarySource = "extractive",
+                        source = if (draft.sourceUri != null) "import" else "camera",
                         sortIndex = idx,
+                        pageId = draft.id,
+                        freshScan = true,
+                        needDetect = false,
+                        needEnhance = draft.enhanceMode != EnhancePreset.ORIGINAL,
                     )
-                    runtime.repo.insert(entity)
-                    documents.add(0, entity)
-                    selectedDocumentId = entity.id
+                    if (firstId == null) firstId = work.pageId
                 }
+                selectedDocumentId = firstId
                 val source = if (snapshot.firstOrNull()?.sourceUri != null) "import" else "camera"
                 AnalyticsTracker.logEvent(
                     context,
@@ -382,7 +406,7 @@ class DocScanAppState(
             }
             draftPages.clear()
             editingDocumentId = null
-            statusBanner = "Saved ${snapshot.size} page(s) locally"
+            statusBanner = "Saved ${snapshot.size} page(s) — processing on device"
             currentRoute = DocScanRoute.HOME_LIBRARY
             activeTab = MainTab.LIBRARY
         }
@@ -395,19 +419,16 @@ class DocScanAppState(
         val doc = selectedDocument() ?: return
         if (doc.tags.contains(clean)) return
         val updated = doc.copy(tags = doc.tags + clean)
-        val idx = documents.indexOfFirst { it.id == doc.id }
-        if (idx >= 0) documents[idx] = updated
+        scope.launch { runtime.repo.insert(updated) }
     }
 
     fun removeTagFromSelected(tag: String) {
         val doc = selectedDocument() ?: return
         val updated = doc.copy(tags = doc.tags.filterNot { it == tag })
-        val idx = documents.indexOfFirst { it.id == doc.id }
-        if (idx >= 0) documents[idx] = updated
+        scope.launch { runtime.repo.insert(updated) }
     }
 
     fun clearLocalLibrary() {
-        documents.clear()
         selectedDocumentId = null
         scope.launch {
             runtime.repo.clearAll()
@@ -484,73 +505,40 @@ class DocScanAppState(
         currentRoute = DocScanRoute.HOME_LIBRARY
     }
 
-    private fun seedInitialDocuments() {
-        val now = System.currentTimeMillis()
-        documents += listOf(
-            PageEntity(
-                id = "doc-1",
-                batchId = "batch-1",
-                name = "Invoice Mar 12",
-                source = "camera",
-                imagePath = "",
-                createdAt = now,
-                ocrText = "INVOICE #1042-88\nBilled to: Acme Corp\nDate: March 12, 2025\nAmount: $1,240.00 USD\nTax ID: US-99214482\nPayment terms: Net-30 via ACH Direct Transfer",
-                ocrLang = "en",
-                ocrLangConfidence = 0.994f,
-                docType = "Invoices",
-                docTypeConfidence = 0.96f,
-                tags = listOf("finance", "tax 2025", "vendor"),
-                summary = "Vendor invoice for cloud infrastructure services ($1,240.00). Due March 31, 2025.",
-                summarySource = "extractive",
-            ),
-            PageEntity(
-                id = "doc-2",
-                batchId = null,
-                name = "Receipt_0912",
-                source = "import",
-                imagePath = "",
-                createdAt = now - 86_400_000L,
-                ocrText = "Blue Bottle Coffee\nTotal: $14.20\nTax 2024 · Paid via Card",
-                ocrLang = "en",
-                ocrLangConfidence = 0.98f,
-                docType = "Receipts",
-                docTypeConfidence = 0.94f,
-                tags = listOf("tax 2024", "coffee"),
-                summary = "Coffee receipt for $14.20 from Blue Bottle Coffee.",
-                summarySource = "extractive",
-            ),
-            PageEntity(
-                id = "doc-3",
-                batchId = "batch-3",
-                name = "Contract Lease Agreement",
-                source = "camera",
-                imagePath = "",
-                createdAt = now - 3 * 86_400_000L,
-                ocrText = "RESIDENTIAL LEASE AGREEMENT\nSigned between Landlord & Tenant for 12 months.",
-                ocrLang = "en",
-                ocrLangConfidence = 0.97f,
-                docType = "Contracts",
-                docTypeConfidence = 0.95f,
-                tags = listOf("legal", "signed"),
-                summary = "3-page signed lease agreement for 12-month term.",
-                summarySource = "extractive",
-            ),
-            PageEntity(
-                id = "doc-4",
-                batchId = "batch-4",
-                name = "Health Insurance Form",
-                source = "camera",
-                imagePath = "",
-                createdAt = now - 7 * 86_400_000L,
-                ocrText = "HEALTH INSURANCE POLICY #HI-4410\nMember ID: 8821-09\nCoverage: Comprehensive",
-                ocrLang = "en",
-                ocrLangConfidence = 0.96f,
-                docType = "ID & Legal",
-                docTypeConfidence = 0.92f,
-                tags = listOf("medical"),
-                summary = "2-page health insurance policy confirmation.",
-                summarySource = "extractive",
-            ),
+    private fun decodeBitmap(path: String): Bitmap? {
+        if (path.isBlank()) return null
+        return runCatching {
+            BitmapFactory.Options().run {
+                inJustDecodeBounds = true
+                BitmapFactory.decodeFile(path, this)
+                inSampleSize = calculateInSampleSize(this, 2048, 2048)
+                inJustDecodeBounds = false
+                BitmapFactory.decodeFile(path, this)
+            }
+        }.getOrNull()
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqW: Int, reqH: Int): Int {
+        val (h, w) = options.outHeight to options.outWidth
+        var sample = 1
+        if (h > reqH || w > reqW) {
+            var halfH = h / 2
+            var halfW = w / 2
+            while (halfH / sample >= reqH && halfW / sample >= reqW) {
+                sample *= 2
+            }
+        }
+        return sample
+    }
+
+    private fun cornersToQuad(corners: List<Offset>, width: Int, height: Int): Quad {
+        val pts = corners.take(4).ifEmpty { DraftPage.defaultQuad() }
+        fun px(o: Offset) = PointF(o.x.coerceIn(0f, 1f) * width, o.y.coerceIn(0f, 1f) * height)
+        return Quad(
+            topLeft = px(pts[0]),
+            topRight = px(pts.getOrElse(1) { pts[0] }),
+            bottomRight = px(pts.getOrElse(2) { pts[0] }),
+            bottomLeft = px(pts.getOrElse(3) { pts[0] }),
         )
     }
 }

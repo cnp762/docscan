@@ -15,6 +15,8 @@ import androidx.room.TypeConverters
 import cam.docscan.data.BatchEntity
 import cam.docscan.data.PageEntity
 import cam.docscan.data.PageRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -65,6 +67,9 @@ class StringListConverters {
 interface DocScanDao {
     @Query("SELECT * FROM pages ORDER BY createdAt DESC, sortIndex ASC")
     suspend fun getAllPages(): List<RoomPageEntity>
+
+    @Query("SELECT * FROM pages ORDER BY createdAt DESC, sortIndex ASC")
+    fun observeAllPages(): Flow<List<RoomPageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertPage(page: RoomPageEntity)
@@ -121,6 +126,9 @@ abstract class DocScanDatabase : RoomDatabase() {
 
 class RoomPageRepository(private val dao: DocScanDao) : PageRepository {
     override suspend fun all(): List<PageEntity> = dao.getAllPages().map { it.toDomain() }
+
+    override fun observeAll(): Flow<List<PageEntity>> =
+        dao.observeAllPages().map { rows -> rows.map { it.toDomain() } }
 
     override suspend fun insert(page: PageEntity) {
         dao.upsertPage(page.toRoom())

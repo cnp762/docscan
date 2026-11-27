@@ -1,7 +1,10 @@
 package cam.docscan.ui.screens
 
+import android.graphics.BitmapFactory
 import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -114,9 +117,12 @@ import cam.docscan.ui.state.DocScanRoute
 import cam.docscan.ui.state.DraftPage
 import cam.docscan.ui.state.MainTab
 import cam.docscan.ui.theme.DocScanColors
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.Executors
 
 @Composable
 fun HomeLibraryScreen(
@@ -666,13 +672,18 @@ fun CameraCaptureScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var corners by remember { mutableStateOf(DraftPage.defaultQuad()) }
     var flashOn by remember { mutableStateOf(false) }
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
+    val captureExecutor = remember { Executors.newSingleThreadExecutor() }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        // CameraX PreviewView when camera permission is granted
         if (state.cameraPermissionGranted) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -692,11 +703,17 @@ fun CameraCaptureScreen(
                             val preview = Preview.Builder().build().also {
                                 it.surfaceProvider = previewView.surfaceProvider
                             }
+                            imageCapture.flashMode = if (flashOn) {
+                                ImageCapture.FLASH_MODE_ON
+                            } else {
+                                ImageCapture.FLASH_MODE_OFF
+                            }
                             provider.unbindAll()
                             provider.bindToLifecycle(
                                 lifecycleOwner,
                                 CameraSelector.DEFAULT_BACK_CAMERA,
                                 preview,
+                                imageCapture,
                             )
                         }
                     }, ContextCompat.getMainExecutor(context))
@@ -707,6 +724,7 @@ fun CameraCaptureScreen(
                     runCatching {
                         ProcessCameraProvider.getInstance(context).get().unbindAll()
                     }
+                    captureExecutor.shutdown()
                 }
             }
         } else {
@@ -852,7 +870,7 @@ fun CameraCaptureScreen(
                     Icon(Icons.Rounded.PhotoLibrary, contentDescription = "Import", tint = DocScanColors.TextPrimary)
                 }
 
-                // Triple-concentric shutter button with spring press feedback
+                // Triple-concentric shutter with spring press + real ImageCapture
                 val shutterInteraction = remember { MutableInteractionSource() }
                 val isShutterPressed by shutterInteraction.collectIsPressedAsState()
                 val reducedMotion = rememberReducedMotion()
@@ -872,13 +890,50 @@ fun CameraCaptureScreen(
                         .clip(CircleShape)
                         .border(2.dp, DocScanColors.ScanGlow, CircleShape)
                         .clickable(
+                            enabled = !state.isCapturing,
                             interactionSource = shutterInteraction,
                             indication = null,
                         ) {
-                            state.addCapturedPage("Scan ${state.draftPages.size + 1}")
-                            if (state.captureMode == CaptureMode.SINGLE) {
-                                state.currentRoute = DocScanRoute.REVIEW_EDIT
-                            }
+                            if (!state.cameraPermissionGranted || state.isCapturing) return@clickable
+                            state.isCapturing = true
+                            val pageId = UUID.randomUUID().toString()
+                            val outFile = File(context.cacheDir, "capture-$pageId.jpg")
+                            val output = ImageCapture.OutputFileOptions.Builder(outFile).build()
+                            imageCapture.takePicture(
+                                output,
+                                captureExecutor,
+                                object : ImageCapture.OnImageSavedCallback {
+                                    override fun onImageSaved(results: ImageCapture.OutputFileResults) {
+                                        val bitmap = BitmapFactory.decodeFile(outFile.absolutePath)
+                                        val persisted = if (bitmap != null) {
+                                            state.fileStorage.saveBitmap(pageId, bitmap).also {
+                                                bitmap.recycle()
+                                            }
+                                        } else {
+                                            outFile
+                                        }
+                                        ContextCompat.getMainExecutor(context).execute {
+                                            state.addCapturedPage(
+                                                imagePath = persisted.absolutePath,
+                                                corners = corners,
+                                                title = "Scan ${state.draftPages.size + 1}",
+                                                pageId = pageId,
+                                            )
+                                            state.isCapturing = false
+                                            if (state.captureMode == CaptureMode.SINGLE) {
+                                                state.currentRoute = DocScanRoute.REVIEW_EDIT
+                                            }
+                                        }
+                                    }
+
+                                    override fun onError(exception: ImageCaptureException) {
+                                        ContextCompat.getMainExecutor(context).execute {
+                                            state.isCapturing = false
+                                            state.statusBanner = "Capture failed: ${exception.message}"
+                                        }
+                                    }
+                                },
+                            )
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -886,7 +941,7 @@ fun CameraCaptureScreen(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(Color.White),
+                            .background(if (state.isCapturing) DocScanColors.TextMuted else Color.White),
                     )
                 }
 
@@ -1086,7 +1141,6 @@ fun ReviewEditScreen(
                 }
             }
 
-            // Perspective crop canvas with InteractiveQuadOverlay
             if (activePage != null) {
                 Box(
                     modifier = Modifier
@@ -1112,7 +1166,7 @@ fun ReviewEditScreen(
                         ) {
                             Text(activePage.title, style = MaterialTheme.typography.titleMedium, color = DocScanColors.TextPrimary)
                             Text(
-                                "Touch & drag any corner for 4× loupe · Rotated ${activePage.rotationDegrees}°",
+                                "No image yet — capture or import a page",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = DocScanColors.TextSecondary,
                             )
