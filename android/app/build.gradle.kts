@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
         buildConfigField("String", "API_BASE_URL", "\"https://api.docscan.cam\"")
         buildConfigField("String", "PRODUCT_PRO_MONTHLY", "\"pro_monthly\"")
         buildConfigField("String", "PRODUCT_PRO_QUARTERLY", "\"pro_quarterly\"")
@@ -54,6 +54,7 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.activity:activity-compose:1.9.3")

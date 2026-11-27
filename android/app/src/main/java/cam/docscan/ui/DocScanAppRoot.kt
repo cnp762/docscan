@@ -1,83 +1,209 @@
 package cam.docscan.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import cam.docscan.BuildConfig
-import cam.docscan.engine.api.OcrPage
-import cam.docscan.engine.api.SummaryMode
-import cam.docscan.engine.classify.DocClassifyEngine
-import cam.docscan.engine.impl.DefaultDocScanEngine
-import cam.docscan.engine.lang.LangDetectEngine
-import cam.docscan.engine.summary.SummaryEngine
-import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import cam.docscan.DocScanApp
+import cam.docscan.engine.DocScanRuntime
+import cam.docscan.ui.screens.BackupScreen
+import cam.docscan.ui.screens.CameraCaptureScreen
+import cam.docscan.ui.screens.CameraPermissionScreen
+import cam.docscan.ui.screens.DocumentDetailScreen
+import cam.docscan.ui.screens.ExportShareScreen
+import cam.docscan.ui.screens.HomeLibraryScreen
+import cam.docscan.ui.screens.LibrarySuggestScreen
+import cam.docscan.ui.screens.OnboardingScreen
+import cam.docscan.ui.screens.PaywallScreen
+import cam.docscan.ui.screens.PhotoPermissionScreen
+import cam.docscan.ui.screens.ReviewEditScreen
+import cam.docscan.ui.screens.SearchFilterScreen
+import cam.docscan.ui.screens.SettingsScreen
+import cam.docscan.ui.state.DocScanAppState
+import cam.docscan.ui.state.DocScanRoute
+import cam.docscan.ui.state.MainTab
 
 /**
- * Shell navigation + engine smoke hooks. Full UI mocks live under docs/screens.
+ * Root navigation shell wiring all 13 Stitch screens to DocScanRuntime.
  */
 @Composable
 fun DocScanAppRoot() {
-    var status by remember {
-        mutableStateOf("Engines: OCR + lang/classify/summary + metadata (resource-gated)")
-    }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val runtime = remember {
+        (context.applicationContext as? DocScanApp)?.runtime ?: DocScanRuntime(context.applicationContext)
+    }
+    val state = remember { DocScanAppState(context.applicationContext, runtime, scope) }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(inner)
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("DocScan", style = MaterialTheme.typography.headlineLarge)
-            Text(
-                "cam.docscan · API ${BuildConfig.API_BASE_URL}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            )
-            Text(status, style = MaterialTheme.typography.bodySmall)
-            Button(onClick = { /* TODO: Capture */ }) { Text("Scan") }
-            Button(onClick = { /* TODO: Photo Picker */ }) { Text("Import") }
-            Button(onClick = {
-                scope.launch {
-                    val sample = OcrPage(
-                        text = "INVOICE #1042\nAmount due: \$120.00\nThank you for your business.",
-                        title = "INVOICE #1042",
-                    )
-                    val lang = LangDetectEngine().detect(sample.text)
-                    val doc = DocClassifyEngine().classify(sample)
-                    val sum = SummaryEngine().summarize(sample.text, SummaryMode.EXTRACTIVE)
-                    status = "lang=${lang.lang} type=${doc.docType} tags=${doc.tags} · ${sum.text}"
-                }
-            }) { Text("Smoke NLP") }
-            Button(onClick = {
-                scope.launch {
-                    val eng = DefaultDocScanEngine()
-                    eng.initialize(null)
-                    status = "DefaultDocScanEngine ready=${eng.isReady()}"
-                    eng.close()
-                }
-            }) { Text("Init engine") }
-            Button(onClick = { /* TODO: Billing */ }) { Text("Go Pro") }
+    LaunchedEffect(Unit) {
+        state.cameraPermissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val mediaPerm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
         }
+        state.photoPermissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            mediaPerm,
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        state.cameraPermissionGranted = granted
+        state.currentRoute = if (granted) DocScanRoute.CAPTURE else DocScanRoute.HOME_LIBRARY
+    }
+
+    val photoPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        state.photoPermissionGranted = granted
+        if (granted) {
+            state.currentRoute = DocScanRoute.LIBRARY_SUGGEST
+        }
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10),
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            state.importUris(uris)
+        }
+    }
+
+    val launchPhotoPicker = {
+        photoPickerLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        )
+    }
+
+    BackHandler(enabled = state.currentRoute != DocScanRoute.HOME_LIBRARY && state.currentRoute != DocScanRoute.ONBOARDING) {
+        state.currentRoute = DocScanRoute.HOME_LIBRARY
+        state.activeTab = MainTab.LIBRARY
+    }
+
+    when (state.currentRoute) {
+        DocScanRoute.ONBOARDING -> OnboardingScreen(
+            onGetStarted = {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
+
+        DocScanRoute.CAMERA_PERMISSION -> CameraPermissionScreen(
+            onAllowCamera = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+            onNotNow = {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
+
+        DocScanRoute.PHOTO_PERMISSION -> PhotoPermissionScreen(
+            onAllowAccess = {
+                val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Manifest.permission.READ_MEDIA_IMAGES
+                } else {
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                }
+                photoPermissionLauncher.launch(perm)
+            },
+            onSelectManually = launchPhotoPicker,
+            onNotNow = {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
+
+        DocScanRoute.HOME_LIBRARY -> HomeLibraryScreen(
+            state = state,
+            onOpenImport = {
+                if (state.photoPermissionGranted) {
+                    launchPhotoPicker()
+                } else {
+                    state.currentRoute = DocScanRoute.PHOTO_PERMISSION
+                }
+            },
+        )
+
+        DocScanRoute.LIBRARY_SUGGEST -> LibrarySuggestScreen(
+            state = state,
+            onBack = {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
+
+        DocScanRoute.CAPTURE -> CameraCaptureScreen(
+            state = state,
+            onOpenGallery = launchPhotoPicker,
+            onBack = {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
+
+        DocScanRoute.REVIEW_EDIT -> ReviewEditScreen(
+            state = state,
+            onAddMore = { state.currentRoute = DocScanRoute.CAPTURE },
+            onDiscard = {
+                state.draftPages.clear()
+                state.editingDocumentId = null
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
+
+        DocScanRoute.DOC_DETAIL -> DocumentDetailScreen(
+            state = state,
+            onBack = {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
+
+        DocScanRoute.SEARCH_FILTER -> SearchFilterScreen(
+            state = state,
+            onBack = {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
+
+        DocScanRoute.EXPORT_SHARE -> ExportShareScreen(
+            state = state,
+            onBack = { state.currentRoute = DocScanRoute.DOC_DETAIL },
+        )
+
+        DocScanRoute.BACKUP -> BackupScreen(
+            state = state,
+            onBack = { state.currentRoute = DocScanRoute.HOME_LIBRARY },
+        )
+
+        DocScanRoute.PAYWALL -> PaywallScreen(
+            state = state,
+            onClose = { state.currentRoute = DocScanRoute.HOME_LIBRARY },
+        )
+
+        DocScanRoute.SETTINGS -> SettingsScreen(
+            state = state,
+            onBack = {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            },
+        )
     }
 }

@@ -1,35 +1,114 @@
+import PhotosUI
 import SwiftUI
 
-/// Shell home. Full flows follow docs/screens/* after mock review.
 struct ContentView: View {
+    @StateObject private var state = DocScanAppState()
+    @State private var showPhotoPicker = false
+    @State private var pickedItems: [PhotosPickerItem] = []
+
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Text("DocScan")
-                    .font(.largeTitle.weight(.semibold))
-                Text("cam.docscan")
-                    .foregroundStyle(.secondary)
-                Text("Shell build. Implement Capture / Import / Suggest / Edit from docs/screens.")
-                    .font(.footnote)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
-                Button("Scan") { /* TODO: AVFoundation capture */ }
-                    .buttonStyle(.borderedProminent)
-                Button("Import") { /* TODO: PHPicker */ }
-                Button("Init engine") {
-                    Task {
-                        let eng = DefaultDocScanEngine()
-                        try? await eng.initialize()
+        Group {
+            switch state.route {
+            case .onboarding:
+                OnboardingView {
+                    state.route = .homeLibrary
+                    state.activeTab = .library
+                }
+            case .cameraPermission:
+                CameraPermissionView(
+                    onAllowCamera: {
+                        Task {
+                            let granted = await CaptureSessionStub().requestAccess()
+                            state.cameraPermissionGranted = granted
+                            state.route = granted ? .capture : .homeLibrary
+                        }
+                    },
+                    onNotNow: {
+                        state.route = .homeLibrary
+                        state.activeTab = .library
+                    }
+                )
+            case .photoPermission:
+                PhotoPermissionView(
+                    onAllowAccess: {
+                        state.photoPermissionGranted = true
+                        state.route = .librarySuggest
+                    },
+                    onSelectManually: { showPhotoPicker = true },
+                    onNotNow: {
+                        state.route = .homeLibrary
+                        state.activeTab = .library
+                    }
+                )
+            case .homeLibrary:
+                HomeLibraryView(state: state) {
+                    if state.photoPermissionGranted {
+                        showPhotoPicker = true
+                    } else {
+                        state.route = .photoPermission
                     }
                 }
-                Button("Go Pro") { /* TODO: StoreKit 2 */ }
+            case .librarySuggest:
+                LibrarySuggestView(state: state) {
+                    state.route = .homeLibrary
+                    state.activeTab = .library
+                }
+            case .capture:
+                CameraCaptureView(
+                    state: state,
+                    onOpenGallery: { showPhotoPicker = true },
+                    onBack: {
+                        state.route = .homeLibrary
+                        state.activeTab = .library
+                    }
+                )
+            case .reviewEdit:
+                ReviewEditView(
+                    state: state,
+                    onAddMore: { state.route = .capture },
+                    onDiscard: {
+                        state.draftPages = []
+                        state.editingDocumentId = nil
+                        state.route = .homeLibrary
+                        state.activeTab = .library
+                    }
+                )
+            case .docDetail:
+                DocumentDetailView(state: state) {
+                    state.route = .homeLibrary
+                    state.activeTab = .library
+                }
+            case .searchFilter:
+                SearchFilterView(state: state) {
+                    state.route = .homeLibrary
+                    state.activeTab = .library
+                }
+            case .exportShare:
+                ExportShareView(state: state) {
+                    state.route = .docDetail
+                }
+            case .backup:
+                BackupView(state: state) {
+                    state.route = .homeLibrary
+                }
+            case .paywall:
+                PaywallView(state: state) {
+                    state.route = .homeLibrary
+                }
+            case .settings:
+                SettingsView(state: state) {
+                    state.route = .homeLibrary
+                    state.activeTab = .library
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(red: 0.05, green: 0.07, blue: 0.06))
-            .foregroundStyle(Color(red: 0.91, green: 0.94, blue: 0.92))
-            .navigationTitle("Library")
         }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItems, maxSelectionCount: 10, matching: .images)
+        .onChange(of: pickedItems) { _, newItems in
+            guard !newItems.isEmpty else { return }
+            state.importPhotos(count: newItems.count)
+            pickedItems = []
+        }
+        .preferredColorScheme(.dark)
     }
 }
 
