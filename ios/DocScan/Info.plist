@@ -26,6 +26,8 @@
 	<string>DocScan needs the camera to scan documents.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>DocScan looks at photos from the last 7 days to suggest documents you can import and scan.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>DocScan uses this to show relevant ads on the free plan. You can upgrade to Pro anytime for an ad-free experience.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
@@ -35,6 +37,31 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>API_BASE_URL</key>
-	<string>https://api.docscan.cam</string>
+	<string>$(API_BASE_URL)</string>
+	<key>PUBLIC_SITE_URL</key>
+	<string>$(PUBLIC_SITE_URL)</string>
+	<key>GADApplicationIdentifier</key>
+	<string>$(ADMOB_APP_ID_IOS)</string>
+	<key>ADMOB_BANNER_UNIT_ID</key>
+	<string>$(ADMOB_BANNER_UNIT_ID_IOS)</string>
+	<key>PRODUCT_PRO_MONTHLY</key>
+	<string>$(PRODUCT_PRO_MONTHLY)</string>
+	<key>PRODUCT_PRO_QUARTERLY</key>
+	<string>$(PRODUCT_PRO_QUARTERLY)</string>
+	<key>PRODUCT_PRO_YEARLY</key>
+	<string>$(PRODUCT_PRO_YEARLY)</string>
+	<key>GOOGLE_OAUTH_CLIENT_ID</key>
+	<string>$(GOOGLE_OAUTH_CLIENT_ID_IOS)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_OAUTH_REVERSED_CLIENT_ID_IOS)</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

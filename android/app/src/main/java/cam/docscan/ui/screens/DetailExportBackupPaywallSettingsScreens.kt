@@ -450,14 +450,7 @@ fun ExportShareScreen(
             ) {
                 Button(
                     onClick = {
-                        val encNote = if (state.exportEncryptPassword && state.exportPassword.isNotBlank()) " [AES-256 Protected]" else ""
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "${doc?.name ?: "DocScan"} (${state.exportFormat.name})$encNote")
-                            putExtra(Intent.EXTRA_TEXT, doc?.ocrText ?: "Exported from DocScan")
-                        }
-                        context.startActivity(Intent.createChooser(intent, "Share ${state.exportFormat.label}"))
-                        state.statusBanner = "Prepared ${state.exportFormat.label}$encNote"
+                        state.exportSelectedDocument(context)
                     },
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape = RoundedCornerShape(14.dp),
@@ -471,7 +464,7 @@ fun ExportShareScreen(
                     Text("Share & Export ${state.exportFormat.name}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 }
                 OutlinedButton(
-                    onClick = { state.statusBanner = "Print job queued on-device" },
+                    onClick = { state.printSelectedDocument(context) },
                     modifier = Modifier.fillMaxWidth().height(46.dp),
                     shape = RoundedCornerShape(14.dp),
                 ) {
@@ -732,6 +725,7 @@ fun PaywallScreen(
     state: DocScanAppState,
     onClose: () -> Unit,
 ) {
+    val context = LocalContext.current
     Scaffold(
         containerColor = DocScanColors.SurfaceBase,
         topBar = {
@@ -821,7 +815,7 @@ fun PaywallScreen(
             }
 
             Button(
-                onClick = { state.activatePro(state.selectedPlan) },
+                onClick = { state.purchasePlan(context as? android.app.Activity, state.selectedPlan) },
                 modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
@@ -839,7 +833,7 @@ fun PaywallScreen(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { state.statusBanner = "Checked Google Play purchases" }) {
+                TextButton(onClick = { state.restorePurchases() }) {
                     Text("Restore Purchases", color = DocScanColors.TextSecondary)
                 }
                 Text("·", color = DocScanColors.TextMuted)

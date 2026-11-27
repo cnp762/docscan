@@ -350,7 +350,11 @@ struct ExportShareView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 Button {
-                    state.statusBanner = "Print job queued on-device"
+                    if let doc = state.selectedDocument,
+                       let pdf = ExportServices.exportSearchablePDF(title: doc.name, pages: [(imagePath: "", ocrText: doc.ocrText)]) {
+                        AnalyticsTracker.logEvent("export_share", params: ["format": "print"])
+                        ExportServices.printFile(url: pdf, jobName: doc.name)
+                    }
                 } label: {
                     Label("Print Document", systemImage: "printer")
                         .font(.subheadline.weight(.medium))
@@ -520,7 +524,7 @@ struct PaywallView: View {
                 }
 
                 Button {
-                    state.activatePro(state.selectedPlan)
+                    state.purchasePlan(state.selectedPlan)
                 } label: {
                     Label("Continue with \(state.selectedPlan.title)", systemImage: "lock.open.fill")
                         .font(.headline)
@@ -533,7 +537,7 @@ struct PaywallView: View {
                 .buttonStyle(.plain)
 
                 Button("Restore Purchases") {
-                    state.statusBanner = "Checked App Store purchases"
+                    state.restorePurchases()
                 }
                 .font(.caption)
                 .foregroundStyle(DocScanColors.textSecondary)

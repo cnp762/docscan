@@ -161,7 +161,7 @@ final class DocScanAppState: ObservableObject {
 
     @Published var isPro: Bool = false
     @Published var selectedPlan: ProPlanOption = .yearly
-    @Published var quotaUsedToday: Int = 3
+    @Published var quotaUsedToday: Int = 0
 
     @Published var cameraPermissionGranted: Bool = false
     @Published var photoPermissionGranted: Bool = false
@@ -192,12 +192,12 @@ final class DocScanAppState: ObservableObject {
     ]
 
     // Backup (iOS: Google Drive + iCloud Drive + Google Photos; images only)
-    @Published var googleDriveConnected: Bool = true
-    @Published var iCloudDriveConnected: Bool = true
+    @Published var googleDriveConnected: Bool = false
+    @Published var iCloudDriveConnected: Bool = ICloudDriveBackupService.isAvailable
     @Published var googlePhotosConnected: Bool = false
     @Published var backupWifiOnly: Bool = true
     @Published var backupEntireLibrary: Bool = true
-    @Published var lastSyncMessage: String = "Last mirror verified 2m ago"
+    @Published var lastSyncMessage: String = "Not backed up yet"
 
     // Export
     @Published var exportFormat: ExportFormatOption = .pdf
@@ -208,10 +208,40 @@ final class DocScanAppState: ObservableObject {
     @Published var statusBanner: String? = nil
 
     private let engine = DefaultDocScanEngine()
+    let apiClient = DocScanAPIClient.shared
+    let storeKit = StoreKitManager()
+    private let localStore = DocScanStore.shared
 
     init() {
-        seedDocuments()
-        Task { try? await engine.initialize() }
+        self.isPro = storeKit.isPro
+        let persisted = localStore.fetchAll()
+        if persisted.isEmpty {
+            seedDocuments()
+        } else {
+            self.documents = persisted.map { rec in
+                DocumentItem(
+                    id: rec.id,
+                    name: rec.name,
+                    docType: rec.docType ?? "Scanned",
+                    createdAt: rec.createdAt,
+                    pageCount: 1,
+                    ocrText: rec.ocrText,
+                    ocrLang: rec.ocrLang ?? "en",
+                    ocrConfidence: 0.98,
+                    summary: rec.summary ?? "",
+                    tags: rec.tags
+                )
+            }
+        }
+        Task {
+            try? await engine.initialize()
+            try? await apiClient.ensureRegistered()
+            if let status = try? await apiClient.getQuotaToday() {
+                self.quotaUsedToday = status.used
+                self.isPro = status.isPro || storeKit.isPro
+            }
+            await storeKit.loadProducts()
+        }
     }
 
     var remainingFreeQuota: Int {
@@ -306,39 +336,75 @@ final class DocScanAppState: ObservableObject {
 
         let isReEdit = editingDocumentId != nil
         if !isReEdit && !isPro && quotaUsedToday + count > Self.freeDailyQuota {
+            AnalyticsTracker.logEvent("quota_hit", params: ["quota_remaining": remainingFreeQuota])
             route = .paywall
             return false
         }
 
-        if let editId = editingDocumentId, let first = draftPages.first,
-           let idx = documents.firstIndex(where: { $0.id == editId }) {
-            documents[idx].name = first.title
-            documents[idx].ocrText = first.ocrText
-        } else {
-            let newDoc = DocumentItem(
-                id: UUID().uuidString,
-                name: draftPages.first?.title ?? "Scanned Document",
-                docType: "Invoices",
-                createdAt: Date(),
-                pageCount: count,
-                ocrText: draftPages.map { $0.ocrText }.joined(separator: "\n\n"),
-                ocrLang: "en",
-                ocrConfidence: 0.99,
-                summary: "Digitized locally on-device (\(count) page\(count > 1 ? "s" : "")).",
-                tags: ["scanned"]
-            )
-            documents.insert(newDoc, at: 0)
-            selectedDocumentId = newDoc.id
-            if !isPro {
-                quotaUsedToday += count
+        let snapshot = draftPages
+        let editId = editingDocumentId
+        Task {
+            if !isReEdit && !isPro {
+                let res = await apiClient.consumeQuota(n: count)
+                switch res {
+                case .allowed(let status):
+                    self.quotaUsedToday = status.used
+                    self.isPro = status.isPro
+                case .quotaExceeded:
+                    AnalyticsTracker.logEvent("quota_hit", params: ["quota_remaining": 0])
+                    self.route = .paywall
+                    return
+                case .networkError:
+                    if self.quotaUsedToday + count > Self.freeDailyQuota {
+                        self.route = .paywall
+                        return
+                    }
+                    self.quotaUsedToday += count
+                }
             }
-        }
 
-        draftPages = []
-        editingDocumentId = nil
-        statusBanner = "Saved \(count) page(s) locally"
-        route = .homeLibrary
-        activeTab = .library
+            if let editId, let first = snapshot.first,
+               let idx = self.documents.firstIndex(where: { $0.id == editId }) {
+                self.documents[idx].name = first.title
+                self.documents[idx].ocrText = first.ocrText
+            } else {
+                let newDoc = DocumentItem(
+                    id: UUID().uuidString,
+                    name: snapshot.first?.title ?? "Scanned Document",
+                    docType: "Invoices",
+                    createdAt: Date(),
+                    pageCount: count,
+                    ocrText: snapshot.map { $0.ocrText }.joined(separator: "\n\n"),
+                    ocrLang: "en",
+                    ocrConfidence: 0.99,
+                    summary: "Digitized locally on-device (\(count) page\(count > 1 ? "s" : "")).",
+                    tags: ["scanned"]
+                )
+                self.localStore.upsert(
+                    PersistedPageRecord(
+                        id: newDoc.id,
+                        name: newDoc.name,
+                        source: "camera",
+                        imagePath: "",
+                        createdAt: newDoc.createdAt,
+                        ocrText: newDoc.ocrText,
+                        ocrLang: newDoc.ocrLang,
+                        docType: newDoc.docType,
+                        tags: newDoc.tags,
+                        summary: newDoc.summary
+                    )
+                )
+                self.documents.insert(newDoc, at: 0)
+                self.selectedDocumentId = newDoc.id
+                AnalyticsTracker.logEvent("scan_save", params: ["n_pages": count, "source": "camera", "is_pro": self.isPro])
+            }
+
+            self.draftPages = []
+            self.editingDocumentId = nil
+            self.statusBanner = "Saved \(count) page(s) locally"
+            self.route = .homeLibrary
+            self.activeTab = .library
+        }
         return true
     }
 
@@ -360,6 +426,7 @@ final class DocScanAppState: ObservableObject {
     func clearLocalLibrary() {
         documents = []
         selectedDocumentId = nil
+        localStore.clearAll()
         statusBanner = "Local library cleared"
     }
 
@@ -370,7 +437,43 @@ final class DocScanAppState: ObservableObject {
         googleDriveConnected = false
         iCloudDriveConnected = false
         googlePhotosConnected = false
+        storeKit.clearLocalEntitlement()
+        Task {
+            try? await apiClient.deleteDeviceMe()
+        }
         statusBanner = "Device account & local data deleted"
+    }
+
+    func purchasePlan(_ plan: ProPlanOption) {
+        selectedPlan = plan
+        Task {
+            do {
+                let ok = try await storeKit.purchase(productId: plan.rawValue)
+                if ok {
+                    self.isPro = true
+                    AnalyticsTracker.logEvent("purchase_success", params: ["product_id": plan.rawValue])
+                    self.statusBanner = "DocScan Pro active (\(plan.title))"
+                    self.route = .homeLibrary
+                }
+            } catch {
+                AnalyticsTracker.logEvent("purchase_fail", params: ["product_id": plan.rawValue])
+                self.statusBanner = "Purchase failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    func restorePurchases() {
+        Task {
+            let restored = await storeKit.restorePurchases()
+            self.isPro = restored
+            if restored {
+                AnalyticsTracker.logEvent("restore_success")
+                self.statusBanner = "DocScan Pro restored"
+                self.route = .homeLibrary
+            } else {
+                self.statusBanner = "No active Pro subscription found"
+            }
+        }
     }
 
     func activatePro(_ plan: ProPlanOption) {

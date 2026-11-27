@@ -43,6 +43,7 @@ ios/**/*.xcuserstate
 ios/**/xcuserdata/
 ios/**/*.xccheckout
 ios/**/*.moved-aside
+ios/Config/Local.xcconfig
 *.ipa
 *.dSYM.zip
 *.dSYM
@@ -72,8 +73,8 @@ Thumbs.db
 # Local data / temp
 *.sqlite
 *.sqlite3
-uploads/
-export/
+/uploads/
+/export/
 *.log
 tmp/
 .temp/

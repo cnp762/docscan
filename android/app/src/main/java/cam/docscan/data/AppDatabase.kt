@@ -38,6 +38,8 @@ interface PageRepository {
     suspend fun insert(page: PageEntity)
     suspend fun upsertBatch(batch: BatchEntity)
     suspend fun search(query: String): List<PageEntity>
+    suspend fun deletePage(id: String)
+    suspend fun clearAll()
 }
 
 class InMemoryPageRepository : PageRepository {
@@ -65,5 +67,14 @@ class InMemoryPageRepository : PageRepository {
                 page.docType?.lowercase()?.contains(q) == true ||
                 page.summary?.lowercase()?.contains(q) == true
         }.sortedByDescending { it.createdAt }
+    }
+
+    override suspend fun deletePage(id: String) {
+        pages.removeAll { it.id == id }
+    }
+
+    override suspend fun clearAll() {
+        pages.clear()
+        batches.clear()
     }
 }

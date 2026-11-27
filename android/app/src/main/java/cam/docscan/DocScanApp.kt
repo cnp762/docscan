@@ -1,6 +1,8 @@
 package cam.docscan
 
 import android.app.Application
+import cam.docscan.data.local.DocScanDatabase
+import cam.docscan.data.local.RoomPageRepository
 import cam.docscan.engine.DocScanRuntime
 
 class DocScanApp : Application() {
@@ -9,7 +11,11 @@ class DocScanApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        runtime = DocScanRuntime(this)
+        val dao = DocScanDatabase.getInstance(this).docScanDao()
+        runtime = DocScanRuntime(
+            context = this,
+            repo = RoomPageRepository(dao),
+        )
     }
 
     override fun onTerminate() {

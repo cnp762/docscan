@@ -1,0 +1,21 @@
+// Safe committed defaults for DocScan iOS.
+// Local overrides are generated into Local.xcconfig (gitignored) via ios/scripts/gen-xcconfig.sh.
+// Note: `//` starts an xcconfig comment, so URLs use `:/$()/`.
+
+API_BASE_URL_DEV = https:/$()/desktop-d5brjmr.tail79d3ce.ts.net:3005/v1
+API_BASE_URL_PROD = https:/$()/api.docscan.cam/v1
+API_BASE_URL[config=Debug] = $(API_BASE_URL_DEV)
+API_BASE_URL[config=Release] = $(API_BASE_URL_PROD)
+
+PUBLIC_SITE_URL = https:/$()/docscan.cam
+
+PRODUCT_PRO_MONTHLY = pro_monthly
+PRODUCT_PRO_QUARTERLY = pro_quarterly
+PRODUCT_PRO_YEARLY = pro_yearly
+
+// Google-published AdMob test IDs for local dev
+ADMOB_APP_ID_IOS = ca-app-pub-3940256099942544~1458002511
+ADMOB_BANNER_UNIT_ID_IOS = ca-app-pub-3940256099942544/2934735716
+
+GOOGLE_OAUTH_CLIENT_ID_IOS =
+GOOGLE_OAUTH_REVERSED_CLIENT_ID_IOS = com.googleusercontent.apps.docscan-placeholder

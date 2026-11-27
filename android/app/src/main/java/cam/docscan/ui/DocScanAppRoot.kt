@@ -7,14 +7,20 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import cam.docscan.DocScanApp
 import cam.docscan.engine.DocScanRuntime
+import cam.docscan.telemetry.AdMobBanner
+import cam.docscan.telemetry.AnalyticsTracker
 import cam.docscan.ui.screens.BackupScreen
 import cam.docscan.ui.screens.CameraCaptureScreen
 import cam.docscan.ui.screens.CameraPermissionScreen
@@ -96,9 +102,25 @@ fun DocScanAppRoot() {
         state.activeTab = MainTab.LIBRARY
     }
 
-    when (state.currentRoute) {
+    LaunchedEffect(state.currentRoute) {
+        AnalyticsTracker.logScreenView(context, state.currentRoute.name.lowercase())
+        if (state.currentRoute == DocScanRoute.PAYWALL) {
+            AnalyticsTracker.logEvent(context, "paywall_view", mapOf("is_pro" to state.isPro))
+        }
+    }
+
+    val showBannerOnRoute = !state.isPro && state.currentRoute in listOf(
+        DocScanRoute.HOME_LIBRARY,
+        DocScanRoute.SEARCH_FILTER,
+        DocScanRoute.DOC_DETAIL,
+    )
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f)) {
+            when (state.currentRoute) {
         DocScanRoute.ONBOARDING -> OnboardingScreen(
             onGetStarted = {
+                AnalyticsTracker.logEvent(context, "onboarding_complete")
                 state.currentRoute = DocScanRoute.HOME_LIBRARY
                 state.activeTab = MainTab.LIBRARY
             },
@@ -205,5 +227,10 @@ fun DocScanAppRoot() {
                 state.activeTab = MainTab.LIBRARY
             },
         )
+            }
+        }
+        if (showBannerOnRoute) {
+            AdMobBanner(isPro = state.isPro)
+        }
     }
 }

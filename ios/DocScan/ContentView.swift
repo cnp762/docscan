@@ -6,23 +6,29 @@ struct ContentView: View {
     @State private var showPhotoPicker = false
     @State private var pickedItems: [PhotosPickerItem] = []
 
+    private var showBannerOnRoute: Bool {
+        !state.isPro && [.homeLibrary, .searchFilter, .docDetail].contains(state.route)
+    }
+
     var body: some View {
-        Group {
-            switch state.route {
-            case .onboarding:
-                OnboardingView {
-                    state.route = .homeLibrary
-                    state.activeTab = .library
-                }
-            case .cameraPermission:
-                CameraPermissionView(
-                    onAllowCamera: {
-                        Task {
-                            let granted = await CaptureSessionStub().requestAccess()
-                            state.cameraPermissionGranted = granted
-                            state.route = granted ? .capture : .homeLibrary
-                        }
-                    },
+        VStack(spacing: 0) {
+            Group {
+                switch state.route {
+                case .onboarding:
+                    OnboardingView {
+                        AnalyticsTracker.logEvent("onboarding_complete")
+                        state.route = .homeLibrary
+                        state.activeTab = .library
+                    }
+                case .cameraPermission:
+                    CameraPermissionView(
+                        onAllowCamera: {
+                            Task {
+                                let granted = await CameraCaptureController().requestAccess()
+                                state.cameraPermissionGranted = granted
+                                state.route = granted ? .capture : .homeLibrary
+                            }
+                        },
                     onNotNow: {
                         state.route = .homeLibrary
                         state.activeTab = .library
@@ -95,11 +101,21 @@ struct ContentView: View {
                 PaywallView(state: state) {
                     state.route = .homeLibrary
                 }
-            case .settings:
-                SettingsView(state: state) {
-                    state.route = .homeLibrary
-                    state.activeTab = .library
+                case .settings:
+                    SettingsView(state: state) {
+                        state.route = .homeLibrary
+                        state.activeTab = .library
+                    }
                 }
+            }
+            if showBannerOnRoute {
+                AdMobBannerView(isPro: state.isPro)
+            }
+        }
+        .onChange(of: state.route) { _, newRoute in
+            AnalyticsTracker.logScreenView("\(newRoute)")
+            if newRoute == .paywall {
+                AnalyticsTracker.logEvent("paywall_view", params: ["is_pro": state.isPro])
             }
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItems, maxSelectionCount: 10, matching: .images)

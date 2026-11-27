@@ -1,5 +1,6 @@
 package cam.docscan.ui.state
 
+import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import androidx.compose.runtime.getValue
@@ -7,7 +8,13 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import cam.docscan.backup.CloudBackupManager
+import cam.docscan.billing.PlayBillingManager
 import cam.docscan.data.PageEntity
+import cam.docscan.data.local.FileStorageManager
+import cam.docscan.data.remote.DeviceIdentityStore
+import cam.docscan.data.remote.DocScanApiClient
+import cam.docscan.data.remote.QuotaConsumeResult
 import cam.docscan.engine.DocScanRuntime
 import cam.docscan.engine.api.EnhancePreset
 import cam.docscan.engine.api.OcrPage
@@ -15,6 +22,9 @@ import cam.docscan.engine.api.SummaryMode
 import cam.docscan.engine.classify.DocClassifyEngine
 import cam.docscan.engine.lang.LangDetectEngine
 import cam.docscan.engine.summary.SummaryEngine
+import cam.docscan.export.ExportQualityLevel
+import cam.docscan.export.ExportServices
+import cam.docscan.telemetry.AnalyticsTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -138,11 +148,11 @@ class DocScanAppState(
     )
 
     // Backup state (Android: Google Drive + Google Photos only; images only)
-    var googleDriveConnected by mutableStateOf(true)
+    var googleDriveConnected by mutableStateOf(false)
     var googlePhotosConnected by mutableStateOf(false)
     var backupWifiOnly by mutableStateOf(true)
     var backupEntireLibrary by mutableStateOf(true)
-    var lastSyncMessage by mutableStateOf("Last mirror verified 2m ago")
+    var lastSyncMessage by mutableStateOf("Not backed up yet")
 
     // Export state
     var exportFormat by mutableStateOf(ExportFormat.PDF)
@@ -156,8 +166,43 @@ class DocScanAppState(
     private val classifyEngine = DocClassifyEngine()
     private val summaryEngine = SummaryEngine()
 
+    private val identityStore = DeviceIdentityStore(context)
+    val apiClient = DocScanApiClient(identity = identityStore)
+    val fileStorage = FileStorageManager(context)
+    val cloudBackup = CloudBackupManager(context)
+    val billingManager = PlayBillingManager(context, apiClient) { pro, _ ->
+        isPro = pro
+        if (pro) {
+            AnalyticsTracker.logEvent(context, "purchase_success", mapOf("is_pro" to true))
+        }
+    }
+
     init {
-        seedInitialDocuments()
+        isPro = billingManager.isCachedPro()
+        googleDriveConnected = cloudBackup.getSignedInAccount() != null
+        quotaUsedToday = 0
+        scope.launch {
+            val saved = runtime.repo.all()
+            if (saved.isNotEmpty()) {
+                documents.clear()
+                documents.addAll(saved)
+            } else {
+                seedInitialDocuments()
+            }
+            apiClient.ensureRegistered()
+            syncQuotaFromServer()
+        }
+        billingManager.startConnection()
+    }
+
+    fun syncQuotaFromServer() {
+        scope.launch {
+            apiClient.getQuotaToday().onSuccess { status ->
+                quotaUsedToday = status.used
+                quotaUtcDay = status.utcDay
+                isPro = status.isPro || billingManager.isCachedPro()
+            }
+        }
     }
 
     val remainingFreeQuota: Int
@@ -243,8 +288,8 @@ class DocScanAppState(
     }
 
     /**
-     * Authoritative Save step: enforces UTC daily quota for new pages (re-edits are free).
-     * Returns true if saved, false if blocked by quota (and navigates to Paywall).
+     * Authoritative Save step: enforces UTC daily quota for new pages via server POST /v1/quota/consume
+     * (re-edits are free). Returns true if save flow started, false if blocked locally by free quota.
      */
     fun commitDraftPages(): Boolean {
         refreshUtcQuotaIfNeeded()
@@ -253,6 +298,7 @@ class DocScanAppState(
 
         val isReEdit = editingDocumentId != null
         if (!isReEdit && !isPro && quotaUsedToday + count > FREE_DAILY_QUOTA) {
+            AnalyticsTracker.logEvent(context, "quota_hit", mapOf("quota_remaining" to remainingFreeQuota))
             currentRoute = DocScanRoute.PAYWALL
             return false
         }
@@ -260,6 +306,28 @@ class DocScanAppState(
         val snapshot = draftPages.toList()
         val targetEditId = editingDocumentId
         scope.launch {
+            if (!isReEdit && !isPro) {
+                when (val consume = apiClient.consumeQuota(count)) {
+                    is QuotaConsumeResult.Allowed -> {
+                        quotaUsedToday = consume.status.used
+                        quotaUtcDay = consume.status.utcDay
+                        isPro = consume.status.isPro
+                    }
+                    is QuotaConsumeResult.QuotaExceeded -> {
+                        AnalyticsTracker.logEvent(context, "quota_hit", mapOf("quota_remaining" to 0))
+                        currentRoute = DocScanRoute.PAYWALL
+                        return@launch
+                    }
+                    is QuotaConsumeResult.NetworkError -> {
+                        if (quotaUsedToday + count > FREE_DAILY_QUOTA) {
+                            currentRoute = DocScanRoute.PAYWALL
+                            return@launch
+                        }
+                        quotaUsedToday += count
+                    }
+                }
+            }
+
             if (isReEdit && targetEditId != null) {
                 val existing = documents.firstOrNull { it.id == targetEditId }
                 val first = snapshot.first()
@@ -275,6 +343,11 @@ class DocScanAppState(
             } else {
                 val batchId = if (snapshot.size > 1) UUID.randomUUID().toString() else null
                 snapshot.forEachIndexed { idx, draft ->
+                    val persistedPath = when {
+                        draft.sourceUri != null ->
+                            fileStorage.copyUriToPageFile(draft.id, draft.sourceUri)?.absolutePath ?: draft.imagePath
+                        else -> draft.imagePath
+                    }
                     val ocr = draft.ocrText.ifBlank { "Scanned document: ${draft.title}" }
                     val lang = langEngine.detect(ocr)
                     val cls = classifyEngine.classify(OcrPage(text = ocr, title = draft.title))
@@ -284,7 +357,7 @@ class DocScanAppState(
                         batchId = batchId,
                         name = draft.title,
                         source = if (draft.sourceUri != null) "import" else "camera",
-                        imagePath = draft.imagePath,
+                        imagePath = persistedPath,
                         createdAt = System.currentTimeMillis() - idx * 1000L,
                         ocrText = ocr,
                         ocrLang = lang.lang,
@@ -300,9 +373,12 @@ class DocScanAppState(
                     documents.add(0, entity)
                     selectedDocumentId = entity.id
                 }
-                if (!isPro) {
-                    quotaUsedToday += snapshot.size
-                }
+                val source = if (snapshot.firstOrNull()?.sourceUri != null) "import" else "camera"
+                AnalyticsTracker.logEvent(
+                    context,
+                    "scan_save",
+                    mapOf("n_pages" to snapshot.size, "source" to source, "is_pro" to isPro),
+                )
             }
             draftPages.clear()
             editingDocumentId = null
@@ -333,6 +409,10 @@ class DocScanAppState(
     fun clearLocalLibrary() {
         documents.clear()
         selectedDocumentId = null
+        scope.launch {
+            runtime.repo.clearAll()
+            fileStorage.clearAllFiles()
+        }
         statusBanner = "Local library cleared"
     }
 
@@ -342,7 +422,59 @@ class DocScanAppState(
         quotaUsedToday = 0
         googleDriveConnected = false
         googlePhotosConnected = false
+        billingManager.clearLocalEntitlement()
+        scope.launch {
+            apiClient.deleteDeviceMe()
+            cloudBackup.revokeAll()
+        }
         statusBanner = "Device account & local data deleted"
+    }
+
+    fun exportSelectedDocument(activityContext: Context) {
+        val doc = selectedDocument() ?: return
+        val pages = documents.filter { it.id == doc.id || (doc.batchId != null && it.batchId == doc.batchId) }
+        val q = when (exportQuality) {
+            ExportQuality.COMPACT -> ExportQualityLevel.COMPACT
+            ExportQuality.STANDARD -> ExportQualityLevel.STANDARD
+            ExportQuality.MAXIMUM -> ExportQualityLevel.MAXIMUM
+        }
+        val (file, mime) = when (exportFormat) {
+            ExportFormat.PDF -> ExportServices.exportSearchablePdf(fileStorage, doc.name, pages, q) to "application/pdf"
+            ExportFormat.DOCX -> ExportServices.exportDocx(fileStorage, doc.name, pages, q) to "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ExportFormat.IMAGES -> ExportServices.exportImagesZip(fileStorage, doc.name, pages, q) to "application/zip"
+        }
+        AnalyticsTracker.logEvent(context, "export_share", mapOf("format" to exportFormat.name.lowercase()))
+        ExportServices.shareFile(activityContext, file, mime)
+    }
+
+    fun printSelectedDocument(activityContext: Context) {
+        val doc = selectedDocument() ?: return
+        val pages = documents.filter { it.id == doc.id || (doc.batchId != null && it.batchId == doc.batchId) }
+        val pdf = ExportServices.exportSearchablePdf(fileStorage, doc.name, pages)
+        AnalyticsTracker.logEvent(context, "export_share", mapOf("format" to "print"))
+        ExportServices.printPdfFile(activityContext, pdf, doc.name)
+    }
+
+    fun purchasePlan(activity: Activity?, plan: ProPlan) {
+        selectedPlan = plan
+        if (activity != null && billingManager.launchPurchase(activity, plan.id)) {
+            return
+        }
+        statusBanner = "Play Billing unavailable in this build"
+    }
+
+    fun restorePurchases() {
+        scope.launch {
+            val restored = billingManager.restorePurchases()
+            isPro = restored
+            if (restored) {
+                AnalyticsTracker.logEvent(context, "restore_success")
+                statusBanner = "DocScan Pro restored"
+                currentRoute = DocScanRoute.HOME_LIBRARY
+            } else {
+                statusBanner = "No active Pro subscription found"
+            }
+        }
     }
 
     fun activatePro(plan: ProPlan) {
