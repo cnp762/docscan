@@ -101,7 +101,7 @@ private struct OnboardingFeatureCard: View {
                             .foregroundStyle(DocScanColors.textPrimary)
                         Spacer()
                         Text(badge)
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .font(.caption2.weight(.medium).monospaced())
                             .foregroundStyle(DocScanColors.tertiary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -146,14 +146,16 @@ struct CameraPermissionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Permissions Flow")
+                Text("Camera Access")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(DocScanColors.textSecondary)
                 Spacer()
-                Button(action: onNotNow) {
-                    Image(systemName: "xmark")
-                        .foregroundStyle(DocScanColors.textSecondary)
-                }
+                DocCircleIconButton(
+                    systemImage: "xmark",
+                    accessibilityLabel: "Close",
+                    foreground: DocScanColors.textSecondary,
+                    action: onNotNow
+                )
             }
 
             Spacer()
@@ -218,14 +220,16 @@ struct PhotoPermissionView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("Permissions Flow")
+                    Text("Photo Access")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(DocScanColors.textSecondary)
                     Spacer()
-                    Button(action: onNotNow) {
-                        Image(systemName: "xmark")
-                            .foregroundStyle(DocScanColors.textSecondary)
-                    }
+                    DocCircleIconButton(
+                        systemImage: "xmark",
+                        accessibilityLabel: "Close",
+                        foreground: DocScanColors.textSecondary,
+                        action: onNotNow
+                    )
                 }
 
                 Text("Allow photo & file access?")

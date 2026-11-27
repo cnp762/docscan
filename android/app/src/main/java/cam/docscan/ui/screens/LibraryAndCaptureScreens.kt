@@ -5,11 +5,17 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -82,6 +88,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -93,12 +100,14 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import cam.docscan.data.PageEntity
 import cam.docscan.ui.components.DocCardSurface
+import cam.docscan.ui.components.DocPageThumbnail
 import cam.docscan.ui.components.DocTopBar
 import cam.docscan.ui.components.FilterMatrixBar
 import cam.docscan.ui.components.InteractiveQuadOverlay
 import cam.docscan.ui.components.FreeAdBannerSlot
 import cam.docscan.ui.components.LocalFirstTrustBanner
 import cam.docscan.ui.components.QuotaChip
+import cam.docscan.ui.components.rememberReducedMotion
 import cam.docscan.ui.state.CaptureMode
 import cam.docscan.ui.state.DocScanAppState
 import cam.docscan.ui.state.DocScanRoute
@@ -158,30 +167,14 @@ fun HomeLibraryScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
+                    Text(
+                        text = "DocScan",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = DocScanColors.TextPrimary,
+                    )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = "DocScan",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = DocScanColors.TextPrimary,
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = DocScanColors.SurfaceOverlay,
-                        ) {
-                            Text(
-                                text = "v1.0.0",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = DocScanColors.TextSecondary,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            )
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         QuotaChip(
                             usedToday = state.quotaUsedToday,
@@ -191,17 +184,22 @@ fun HomeLibraryScreen(
                         )
                         IconButton(
                             onClick = { state.currentRoute = DocScanRoute.SETTINGS },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(DocScanColors.SurfaceCard),
+                            modifier = Modifier.size(48.dp),
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Settings,
-                                contentDescription = "Settings",
-                                tint = DocScanColors.TextPrimary,
-                                modifier = Modifier.size(18.dp),
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(DocScanColors.SurfaceCard),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Settings,
+                                    contentDescription = "Settings",
+                                    tint = DocScanColors.TextPrimary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -402,21 +400,15 @@ private fun DocumentListItemCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(
+            DocPageThumbnail(
+                imagePath = doc.imagePath,
                 modifier = Modifier
                     .size(width = 48.dp, height = 64.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(DocScanColors.SurfaceRaised)
                     .border(1.dp, DocScanColors.BorderSubtle, RoundedCornerShape(6.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Description,
-                    contentDescription = null,
-                    tint = DocScanColors.ScanGlow,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
+                iconSize = 24.dp,
+                maxDimensionPx = 256,
+            )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = doc.name,
@@ -759,9 +751,17 @@ fun CameraCaptureScreen(
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.clip(CircleShape).background(DocScanColors.SurfaceRaised.copy(alpha = 0.85f)),
+                    modifier = Modifier.size(48.dp),
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = DocScanColors.TextPrimary)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(DocScanColors.SurfaceRaised.copy(alpha = 0.85f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = DocScanColors.TextPrimary)
+                    }
                 }
                 QuotaChip(
                     usedToday = state.quotaUsedToday,
@@ -771,13 +771,21 @@ fun CameraCaptureScreen(
                 )
                 IconButton(
                     onClick = { flashOn = !flashOn },
-                    modifier = Modifier.clip(CircleShape).background(DocScanColors.SurfaceRaised.copy(alpha = 0.85f)),
+                    modifier = Modifier.size(48.dp),
                 ) {
-                    Icon(
-                        Icons.Rounded.FlashOn,
-                        contentDescription = "Flash",
-                        tint = if (flashOn) DocScanColors.WarningAmber else DocScanColors.TextPrimary,
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(DocScanColors.SurfaceRaised.copy(alpha = 0.85f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.FlashOn,
+                            contentDescription = "Flash",
+                            tint = if (flashOn) DocScanColors.WarningAmber else DocScanColors.TextPrimary,
+                        )
+                    }
                 }
             }
 
@@ -844,13 +852,29 @@ fun CameraCaptureScreen(
                     Icon(Icons.Rounded.PhotoLibrary, contentDescription = "Import", tint = DocScanColors.TextPrimary)
                 }
 
-                // Triple-concentric shutter button
+                // Triple-concentric shutter button with spring press feedback
+                val shutterInteraction = remember { MutableInteractionSource() }
+                val isShutterPressed by shutterInteraction.collectIsPressedAsState()
+                val reducedMotion = rememberReducedMotion()
+                val shutterScale by animateFloatAsState(
+                    targetValue = if (isShutterPressed && !reducedMotion) 0.92f else 1f,
+                    animationSpec = if (reducedMotion) {
+                        tween(0)
+                    } else {
+                        spring(stiffness = Spring.StiffnessMedium, dampingRatio = 0.7f)
+                    },
+                    label = "shutterScale",
+                )
                 Box(
                     modifier = Modifier
                         .size(74.dp)
+                        .scale(shutterScale)
                         .clip(CircleShape)
                         .border(2.dp, DocScanColors.ScanGlow, CircleShape)
-                        .clickable {
+                        .clickable(
+                            interactionSource = shutterInteraction,
+                            indication = null,
+                        ) {
                             state.addCapturedPage("Scan ${state.draftPages.size + 1}")
                             if (state.captureMode == CaptureMode.SINGLE) {
                                 state.currentRoute = DocScanRoute.REVIEW_EDIT
@@ -906,6 +930,7 @@ fun ReviewEditScreen(
 ) {
     val activeIdx = state.activeDraftIndex.coerceIn(0, (state.draftPages.size - 1).coerceAtLeast(0))
     val activePage = state.draftPages.getOrNull(activeIdx)
+    var isDraggingQuad by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = DocScanColors.SurfaceBase,
@@ -993,7 +1018,7 @@ fun ReviewEditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState(), enabled = !isDraggingQuad)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -1015,21 +1040,34 @@ fun ReviewEditScreen(
                                 color = if (isSelected) DocScanColors.ScanGlow else DocScanColors.BorderSubtle,
                                 shape = RoundedCornerShape(10.dp),
                             )
-                            .clickable { state.activeDraftIndex = idx }
-                            .padding(6.dp),
+                            .clickable { state.activeDraftIndex = idx },
                     ) {
-                        Text(
-                            text = "p${idx + 1}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isSelected) DocScanColors.ScanGlow else DocScanColors.TextSecondary,
-                            modifier = Modifier.align(Alignment.TopStart),
+                        DocPageThumbnail(
+                            imagePath = page.imagePath,
+                            sourceUri = page.sourceUri,
+                            modifier = Modifier.fillMaxSize(),
+                            iconSize = 18.dp,
+                            maxDimensionPx = 200,
                         )
-                        Text(
-                            text = if (isSelected) "Edit" else "Ready",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = DocScanColors.TextMuted,
-                            modifier = Modifier.align(Alignment.BottomStart),
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(DocScanColors.SurfaceBase.copy(alpha = 0.35f))
+                                .padding(6.dp),
+                        ) {
+                            Text(
+                                text = "p${idx + 1}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isSelected) DocScanColors.ScanGlow else DocScanColors.TextPrimary,
+                                modifier = Modifier.align(Alignment.TopStart),
+                            )
+                            Text(
+                                text = if (isSelected) "Edit" else "Ready",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DocScanColors.TextSecondary,
+                                modifier = Modifier.align(Alignment.BottomStart),
+                            )
+                        }
                     }
                 }
                 Box(
@@ -1058,18 +1096,27 @@ fun ReviewEditScreen(
                         .background(DocScanColors.SurfaceRaised)
                         .border(1.dp, DocScanColors.BorderSubtle, RoundedCornerShape(16.dp)),
                 ) {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(Icons.Rounded.DocumentScanner, contentDescription = null, tint = DocScanColors.TextMuted, modifier = Modifier.size(44.dp))
-                        Text(activePage.title, style = MaterialTheme.typography.titleMedium, color = DocScanColors.TextPrimary)
-                        Text(
-                            "Touch & drag any corner for 4× loupe · Rotated ${activePage.rotationDegrees}°",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = DocScanColors.TextSecondary,
-                        )
+                    DocPageThumbnail(
+                        imagePath = activePage.imagePath,
+                        sourceUri = activePage.sourceUri,
+                        modifier = Modifier.fillMaxSize(),
+                        fallbackIcon = Icons.Rounded.DocumentScanner,
+                        iconSize = 44.dp,
+                        maxDimensionPx = 1024,
+                    )
+                    if (activePage.imagePath.isBlank() && activePage.sourceUri == null) {
+                        Column(
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(activePage.title, style = MaterialTheme.typography.titleMedium, color = DocScanColors.TextPrimary)
+                            Text(
+                                "Touch & drag any corner for 4× loupe · Rotated ${activePage.rotationDegrees}°",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = DocScanColors.TextSecondary,
+                            )
+                        }
                     }
                     InteractiveQuadOverlay(
                         corners = activePage.corners,
@@ -1077,6 +1124,7 @@ fun ReviewEditScreen(
                             val updated = activePage.corners.toMutableList().also { it[cornerIdx] = offset }
                             state.draftPages[activeIdx] = activePage.copy(corners = updated)
                         },
+                        onDragStateChange = { isDraggingQuad = it },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

@@ -278,7 +278,7 @@ fun CameraPermissionScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("Permissions Flow", style = MaterialTheme.typography.labelLarge, color = DocScanColors.TextSecondary)
+            Text("Camera Access", style = MaterialTheme.typography.labelLarge, color = DocScanColors.TextSecondary)
             IconButton(onClick = onNotNow) {
                 Icon(Icons.Rounded.Close, contentDescription = "Close", tint = DocScanColors.TextSecondary)
             }
@@ -370,7 +370,7 @@ fun PhotoPermissionScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("Permissions Flow", style = MaterialTheme.typography.labelLarge, color = DocScanColors.TextSecondary)
+            Text("Camera Access", style = MaterialTheme.typography.labelLarge, color = DocScanColors.TextSecondary)
             IconButton(onClick = onNotNow) {
                 Icon(Icons.Rounded.Close, contentDescription = "Close", tint = DocScanColors.TextSecondary)
             }

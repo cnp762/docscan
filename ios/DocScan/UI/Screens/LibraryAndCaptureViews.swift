@@ -16,42 +16,28 @@ struct HomeLibraryView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    // Header
-                    HStack {
-                        HStack(spacing: 8) {
-                            Text("DocScan")
-                                .font(.title2.weight(.bold))
-                                .foregroundStyle(DocScanColors.textPrimary)
-                            Text("v1.0.0")
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundStyle(DocScanColors.textSecondary)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(DocScanColors.surfaceOverlay)
-                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        }
-                        Spacer()
-                        QuotaChipView(
-                            usedToday: state.quotaUsedToday,
-                            dailyLimit: DocScanAppState.freeDailyQuota,
-                            isPro: state.isPro
-                        ) {
-                            state.route = .paywall
-                        }
-                        Button {
-                            state.route = .settings
-                        } label: {
-                            Image(systemName: "gearshape.fill")
-                                .foregroundStyle(DocScanColors.textPrimary)
-                                .frame(width: 36, height: 36)
-                                .background(DocScanColors.surfaceCard)
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                // Header
+                HStack {
+                    Text("DocScan")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(DocScanColors.textPrimary)
+                    Spacer()
+                    QuotaChipView(
+                        usedToday: state.quotaUsedToday,
+                        dailyLimit: DocScanAppState.freeDailyQuota,
+                        isPro: state.isPro
+                    ) {
+                        state.route = .paywall
                     }
+                    DocCircleIconButton(
+                        systemImage: "gearshape.fill",
+                        accessibilityLabel: "Settings"
+                    ) {
+                        state.route = .settings
+                    }
+                }
 
                     if let banner = state.statusBanner {
                         Button {
@@ -143,7 +129,7 @@ struct HomeLibraryView: View {
                                     ForEach(state.suggestCandidates.filter(\.isDocument)) { item in
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(item.category)
-                                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                                .font(.caption2.weight(.medium).monospaced())
                                                 .foregroundStyle(DocScanColors.tertiary)
                                             Text(item.title)
                                                 .font(.subheadline.weight(.semibold))
@@ -193,11 +179,10 @@ struct HomeLibraryView: View {
                             } label: {
                                 DocCardSurface {
                                     HStack(spacing: 12) {
-                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                            .fill(DocScanColors.surfaceRaised)
+                                        DocPageThumbnailView(imagePath: doc.imagePath, iconFont: .title3, maxDimension: 256)
                                             .frame(width: 48, height: 64)
+                                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                                             .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(DocScanColors.borderSubtle, lineWidth: 1))
-                                            .overlay(Image(systemName: "doc.text.fill").foregroundStyle(DocScanColors.scanGlow))
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(doc.name)
                                                 .font(.subheadline.weight(.semibold))
@@ -210,7 +195,7 @@ struct HomeLibraryView: View {
                                                 HStack(spacing: 6) {
                                                     ForEach(doc.tags.prefix(3), id: \.self) { tag in
                                                         Text("#\(tag)")
-                                                            .font(.system(size: 11, design: .monospaced))
+                                                            .font(.caption2.monospaced())
                                                             .foregroundStyle(DocScanColors.tertiary)
                                                             .padding(.horizontal, 6)
                                                             .padding(.vertical, 2)
@@ -232,36 +217,36 @@ struct HomeLibraryView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 96)
+                .padding(.bottom, 12)
             }
-
-            // Free AdMob banner + 3-tab bottom bar (Search lives in Library header)
-            VStack(spacing: 0) {
-                FreeAdBannerSlot(isPro: state.isPro)
-                HStack {
-                    FloatingTabButton(icon: "folder.fill", label: "Library", selected: state.activeTab == .library) {
-                        state.activeTab = .library
-                        state.route = .homeLibrary
+            .safeAreaInset(edge: .bottom) {
+                // Free AdMob banner + 3-tab bottom bar (Search lives in Library header)
+                VStack(spacing: 0) {
+                    FreeAdBannerSlot(isPro: state.isPro)
+                    HStack {
+                        FloatingTabButton(icon: "folder.fill", label: "Library", selected: state.activeTab == .library) {
+                            state.activeTab = .library
+                            state.route = .homeLibrary
+                        }
+                        FloatingTabButton(icon: "doc.viewfinder", label: "Scan", selected: state.activeTab == .scan, highlight: true) {
+                            state.activeTab = .scan
+                            state.startNewCaptureSession()
+                        }
+                        FloatingTabButton(icon: "photo.on.rectangle", label: "Import", selected: state.activeTab == .import) {
+                            state.activeTab = .import
+                            onOpenImport()
+                        }
                     }
-                    FloatingTabButton(icon: "doc.viewfinder", label: "Scan", selected: state.activeTab == .scan, highlight: true) {
-                        state.activeTab = .scan
-                        state.startNewCaptureSession()
-                    }
-                    FloatingTabButton(icon: "photo.on.rectangle", label: "Import", selected: state.activeTab == .import) {
-                        state.activeTab = .import
-                        onOpenImport()
-                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial)
+                    .background(DocScanColors.surfaceOverlay.opacity(0.85))
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(DocScanColors.borderMedium, lineWidth: 1))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(.ultraThinMaterial)
-                .background(DocScanColors.surfaceOverlay.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(DocScanColors.borderMedium, lineWidth: 1))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
             }
-        }
         .background(DocScanColors.surfaceBase.ignoresSafeArea())
     }
 }
@@ -299,13 +284,7 @@ struct LibrarySuggestView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .foregroundStyle(DocScanColors.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(DocScanColors.surfaceCard)
-                        .clipShape(Circle())
-                }
+                DocCircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
                 VStack(alignment: .leading) {
                     Text("Library Suggest").font(.headline).foregroundStyle(DocScanColors.textPrimary)
                     Text("Last 7 days · On-device").font(.caption).foregroundStyle(DocScanColors.textSecondary)
@@ -344,7 +323,7 @@ struct LibrarySuggestView: View {
                                         .foregroundStyle(item.isDocument ? DocScanColors.scanGlow : DocScanColors.textMuted)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("\(item.category) · \(item.confidencePercent)%")
-                                            .font(.system(size: 11, design: .monospaced))
+                                            .font(.caption2.monospaced())
                                             .foregroundStyle(DocScanColors.tertiary)
                                         Text(item.title)
                                             .font(.subheadline.weight(.semibold))
@@ -372,7 +351,7 @@ struct LibrarySuggestView: View {
                         .foregroundStyle(DocScanColors.textPrimary)
                     Spacer()
                     Text(state.isPro ? "Pro · Unlimited" : "Uses \(selectedCount)/\(DocScanAppState.freeDailyQuota) daily quota")
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.caption2.monospaced())
                         .foregroundStyle(DocScanColors.scanGlow)
                 }
                 Button {
@@ -395,17 +374,59 @@ struct LibrarySuggestView: View {
     }
 }
 
+private struct CameraPreviewRepresentable: UIViewRepresentable {
+    let session: AVCaptureSession
+
+    func makeUIView(context: Context) -> PreviewUIView {
+        let view = PreviewUIView()
+        view.previewLayer.session = session
+        view.previewLayer.videoGravity = .resizeAspectFill
+        return view
+    }
+
+    func updateUIView(_ uiView: PreviewUIView, context: Context) {
+        uiView.previewLayer.session = session
+    }
+
+    final class PreviewUIView: UIView {
+        override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+        var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    }
+}
+
 struct CameraCaptureView: View {
     @ObservedObject var state: DocScanAppState
     let onOpenGallery: () -> Void
     let onBack: () -> Void
 
+    @StateObject private var captureController = CameraCaptureController()
     @State private var corners: [CGPoint] = DraftPageItem.defaultQuad()
     @State private var flashOn = false
 
     var body: some View {
         ZStack {
-            DocScanColors.surfaceBase.ignoresSafeArea()
+            if state.cameraPermissionGranted {
+                CameraPreviewRepresentable(session: captureController.session)
+                    .ignoresSafeArea()
+                    .onAppear {
+                        try? captureController.configureAndStart()
+                    }
+                    .onDisappear {
+                        captureController.stop()
+                    }
+                    .onChange(of: captureController.detectedQuad) { _, detected in
+                        if let detected, detected.count == 4 {
+                            corners = detected
+                        }
+                    }
+            } else {
+                DocScanColors.surfaceBase.ignoresSafeArea()
+                Text("Camera preview ready after permission")
+                    .font(.subheadline)
+                    .foregroundStyle(DocScanColors.textSecondary)
+            }
+
+            DocScanColors.surfaceBase.opacity(0.28).ignoresSafeArea()
 
             InteractiveQuadOverlay(corners: $corners)
                 .padding(.top, 80)
@@ -413,26 +434,26 @@ struct CameraCaptureView: View {
 
             VStack {
                 HStack {
-                    Button(action: onBack) {
-                        Image(systemName: "chevron.left")
-                            .foregroundStyle(DocScanColors.textPrimary)
-                            .frame(width: 40, height: 40)
-                            .background(DocScanColors.surfaceRaised.opacity(0.85))
-                            .clipShape(Circle())
-                    }
+                    DocCircleIconButton(
+                        systemImage: "chevron.left",
+                        accessibilityLabel: "Back",
+                        visualSize: 40,
+                        background: DocScanColors.surfaceRaised.opacity(0.85),
+                        action: onBack
+                    )
                     Spacer()
                     QuotaChipView(usedToday: state.quotaUsedToday, dailyLimit: DocScanAppState.freeDailyQuota, isPro: state.isPro) {
                         state.route = .paywall
                     }
                     Spacer()
-                    Button {
+                    DocCircleIconButton(
+                        systemImage: flashOn ? "bolt.fill" : "bolt.slash",
+                        accessibilityLabel: "Flash",
+                        visualSize: 40,
+                        foreground: flashOn ? DocScanColors.warningAmber : DocScanColors.textPrimary,
+                        background: DocScanColors.surfaceRaised.opacity(0.85)
+                    ) {
                         flashOn.toggle()
-                    } label: {
-                        Image(systemName: flashOn ? "bolt.fill" : "bolt.slash")
-                            .foregroundStyle(flashOn ? DocScanColors.warningAmber : DocScanColors.textPrimary)
-                            .frame(width: 40, height: 40)
-                            .background(DocScanColors.surfaceRaised.opacity(0.85))
-                            .clipShape(Circle())
                     }
                 }
                 .padding(.horizontal, 16)
@@ -493,6 +514,7 @@ struct CameraCaptureView: View {
                                 .frame(width: 74, height: 74)
                                 .overlay(Circle().fill(Color.white).frame(width: 56, height: 56))
                         }
+                        .buttonStyle(ScalePressButtonStyle())
                         Spacer()
                         Button {
                             if !state.draftPages.isEmpty {
@@ -523,6 +545,7 @@ struct ReviewEditView: View {
     @ObservedObject var state: DocScanAppState
     let onAddMore: () -> Void
     let onDiscard: () -> Void
+    @State private var isDraggingQuad = false
 
     private var activeIndex: Int {
         min(max(state.activeDraftIndex, 0), max(state.draftPages.count - 1, 0))
@@ -531,13 +554,7 @@ struct ReviewEditView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: onDiscard) {
-                    Image(systemName: "chevron.left")
-                        .foregroundStyle(DocScanColors.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(DocScanColors.surfaceCard)
-                        .clipShape(Circle())
-                }
+                DocCircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onDiscard)
                 VStack(alignment: .leading) {
                     Text("Perspective Crop").font(.headline).foregroundStyle(DocScanColors.textPrimary)
                     if !state.draftPages.isEmpty {
@@ -558,23 +575,26 @@ struct ReviewEditView: View {
                     // Filmstrip
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(Array(state.draftPages.enumerated()), id: \.element.id) { idx, _ in
+                            ForEach(Array(state.draftPages.enumerated()), id: \.element.id) { idx, page in
                                 let selected = idx == activeIndex
                                 Button {
                                     state.activeDraftIndex = idx
                                 } label: {
-                                    VStack {
-                                        Text("p\(idx + 1)")
-                                            .font(.system(size: 11, design: .monospaced))
-                                            .foregroundStyle(selected ? DocScanColors.scanGlow : DocScanColors.textSecondary)
-                                        Spacer()
-                                        Text(selected ? "Edit" : "Ready")
-                                            .font(.system(size: 10, design: .monospaced))
-                                            .foregroundStyle(DocScanColors.textMuted)
+                                    ZStack {
+                                        DocPageThumbnailView(imagePath: page.imagePath, iconFont: .caption, maxDimension: 200)
+                                        DocScanColors.surfaceBase.opacity(0.35)
+                                        VStack {
+                                            Text("p\(idx + 1)")
+                                                .font(.caption2.monospaced())
+                                                .foregroundStyle(selected ? DocScanColors.scanGlow : DocScanColors.textPrimary)
+                                            Spacer()
+                                            Text(selected ? "Edit" : "Ready")
+                                                .font(.caption2.monospaced())
+                                                .foregroundStyle(DocScanColors.textSecondary)
+                                        }
+                                        .padding(6)
                                     }
                                     .frame(width: 56, height: 72)
-                                    .padding(6)
-                                    .background(DocScanColors.surfaceCard)
                                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -599,23 +619,32 @@ struct ReviewEditView: View {
 
                     if activeIndex < state.draftPages.count {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(DocScanColors.surfaceRaised)
-                                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(DocScanColors.borderSubtle, lineWidth: 1))
+                            DocPageThumbnailView(
+                                imagePath: state.draftPages[activeIndex].imagePath,
+                                fallbackIcon: "doc.viewfinder",
+                                iconFont: .largeTitle,
+                                maxDimension: 1024
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(DocScanColors.borderSubtle, lineWidth: 1))
 
-                            VStack(spacing: 6) {
-                                Image(systemName: "doc.viewfinder")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(DocScanColors.textMuted)
-                                Text(state.draftPages[activeIndex].title)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(DocScanColors.textPrimary)
-                                Text("Drag corners for 4× loupe · Rotated \(state.draftPages[activeIndex].rotationDegrees)°")
-                                    .font(.caption)
-                                    .foregroundStyle(DocScanColors.textSecondary)
+                            if state.draftPages[activeIndex].imagePath.isEmpty {
+                                VStack(spacing: 6) {
+                                    Spacer()
+                                    Text(state.draftPages[activeIndex].title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(DocScanColors.textPrimary)
+                                    Text("Drag corners for 4× loupe · Rotated \(state.draftPages[activeIndex].rotationDegrees)°")
+                                        .font(.caption)
+                                        .foregroundStyle(DocScanColors.textSecondary)
+                                }
+                                .padding(14)
                             }
 
-                            InteractiveQuadOverlay(corners: $state.draftPages[activeIndex].corners)
+                            InteractiveQuadOverlay(
+                                corners: $state.draftPages[activeIndex].corners,
+                                onDragStateChange: { isDraggingQuad = $0 }
+                            )
                         }
                         .frame(height: 320)
 
@@ -640,6 +669,7 @@ struct ReviewEditView: View {
                 }
                 .padding(16)
             }
+            .scrollDisabled(isDraggingQuad)
 
             VStack(spacing: 12) {
                 if activeIndex < state.draftPages.count {

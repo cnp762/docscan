@@ -1,6 +1,7 @@
 package cam.docscan.ui.screens
 
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -94,6 +96,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cam.docscan.ui.components.DocCardSurface
+import cam.docscan.ui.components.DocPageThumbnail
 import cam.docscan.ui.components.DocTopBar
 import cam.docscan.ui.components.FreeAdBannerSlot
 import cam.docscan.ui.components.LocalFirstTrustBanner
@@ -163,13 +166,21 @@ fun DocumentDetailScreen(
                         .border(1.dp, DocScanColors.BorderSubtle, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(Icons.Rounded.Description, contentDescription = null, tint = DocScanColors.ScanGlow, modifier = Modifier.size(42.dp))
-                        Text(doc.name, style = MaterialTheme.typography.titleMedium, color = DocScanColors.TextPrimary)
-                        Text("Ready for export · Private on this phone", style = MaterialTheme.typography.bodySmall, color = DocScanColors.TextSecondary)
+                    DocPageThumbnail(
+                        imagePath = doc.imagePath,
+                        modifier = Modifier.fillMaxSize(),
+                        iconSize = 42.dp,
+                        maxDimensionPx = 768,
+                    )
+                    if (doc.imagePath.isBlank()) {
+                        Column(
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(doc.name, style = MaterialTheme.typography.titleMedium, color = DocScanColors.TextPrimary)
+                            Text("Ready for export · Private on this phone", style = MaterialTheme.typography.bodySmall, color = DocScanColors.TextSecondary)
+                        }
                     }
                 }
             }
@@ -837,7 +848,11 @@ fun PaywallScreen(
                     Text("Restore Purchases", color = DocScanColors.TextSecondary)
                 }
                 Text("·", color = DocScanColors.TextMuted)
-                TextButton(onClick = {}) {
+                TextButton(onClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://docscan.cam/terms")))
+                    }
+                }) {
                     Text("Terms & Privacy", color = DocScanColors.TextSecondary)
                 }
             }
@@ -866,8 +881,10 @@ fun SettingsScreen(
     state: DocScanAppState,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
     var showClearDialog by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var showLicensesDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = DocScanColors.SurfaceBase,
@@ -938,8 +955,19 @@ fun SettingsScreen(
                     Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = DocScanColors.TextSecondary)
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable {}.padding(vertical = 6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 48.dp)
+                        .clickable {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/account/subscriptions")),
+                                )
+                            }
+                        }
+                        .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("Manage subscription", style = MaterialTheme.typography.bodyMedium, color = DocScanColors.TextPrimary)
                     Icon(Icons.Rounded.OpenInNew, contentDescription = null, tint = DocScanColors.TextSecondary, modifier = Modifier.size(18.dp))
@@ -1003,11 +1031,21 @@ fun SettingsScreen(
             // ABOUT
             Text("ABOUT", style = MaterialTheme.typography.labelSmall, color = DocScanColors.TextMuted)
             DocCardSurface {
-                SettingsRow(Icons.Rounded.Info, "Privacy Policy", "docscan.cam/privacy", null) {}
+                SettingsRow(Icons.Rounded.Info, "Privacy Policy", "docscan.cam/privacy", null) {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://docscan.cam/privacy")))
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
-                SettingsRow(Icons.Rounded.Info, "Terms of Use", "docscan.cam/terms", null) {}
+                SettingsRow(Icons.Rounded.Info, "Terms of Use", "docscan.cam/terms", null) {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://docscan.cam/terms")))
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
-                SettingsRow(Icons.Rounded.Info, "Licenses (NOTICE)", "Open-source & model licenses", null) {}
+                SettingsRow(Icons.Rounded.Info, "Licenses (NOTICE)", "Open-source & model licenses", null) {
+                    showLicensesDialog = true
+                }
             }
 
             // DATA
@@ -1083,6 +1121,25 @@ fun SettingsScreen(
             },
         )
     }
+
+    if (showLicensesDialog) {
+        AlertDialog(
+            onDismissRequest = { showLicensesDialog = false },
+            containerColor = DocScanColors.SurfaceCard,
+            title = { Text("Open-Source & Model Licenses", color = DocScanColors.TextPrimary) },
+            text = {
+                Text(
+                    "DocScan uses Jetpack Compose, CameraX, Room, ML Kit Text Recognition, and bundled on-device document detection models. All processing runs locally on your phone.",
+                    color = DocScanColors.TextSecondary,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showLicensesDialog = false }) {
+                    Text("Close", color = DocScanColors.ScanGlow)
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -1095,7 +1152,11 @@ private fun SettingsRow(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 48.dp)
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {

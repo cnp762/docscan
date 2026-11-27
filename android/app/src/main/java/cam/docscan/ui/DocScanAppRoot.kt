@@ -7,6 +7,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +30,7 @@ import androidx.core.content.ContextCompat
 import cam.docscan.DocScanApp
 import cam.docscan.engine.DocScanRuntime
 import cam.docscan.telemetry.AnalyticsTracker
+import cam.docscan.ui.components.rememberReducedMotion
 import cam.docscan.ui.screens.BackupScreen
 import cam.docscan.ui.screens.CameraCaptureScreen
 import cam.docscan.ui.screens.CameraPermissionScreen
@@ -97,8 +108,24 @@ fun DocScanAppRoot() {
     }
 
     BackHandler(enabled = state.currentRoute != DocScanRoute.HOME_LIBRARY && state.currentRoute != DocScanRoute.ONBOARDING) {
-        state.currentRoute = DocScanRoute.HOME_LIBRARY
-        state.activeTab = MainTab.LIBRARY
+        when (state.currentRoute) {
+            DocScanRoute.EXPORT_SHARE -> state.currentRoute = DocScanRoute.DOC_DETAIL
+            DocScanRoute.REVIEW_EDIT -> {
+                if (state.editingDocumentId != null) {
+                    state.draftPages.clear()
+                    state.editingDocumentId = null
+                    state.currentRoute = DocScanRoute.DOC_DETAIL
+                } else {
+                    state.draftPages.clear()
+                    state.currentRoute = DocScanRoute.HOME_LIBRARY
+                    state.activeTab = MainTab.LIBRARY
+                }
+            }
+            else -> {
+                state.currentRoute = DocScanRoute.HOME_LIBRARY
+                state.activeTab = MainTab.LIBRARY
+            }
+        }
     }
 
     LaunchedEffect(state.currentRoute) {
@@ -108,7 +135,30 @@ fun DocScanAppRoot() {
         }
     }
 
-    when (state.currentRoute) {
+    val reducedMotion = rememberReducedMotion()
+    AnimatedContent(
+        targetState = state.currentRoute,
+        transitionSpec = {
+            if (reducedMotion) {
+                fadeIn(tween(120)) togetherWith fadeOut(tween(100))
+            } else {
+                val isModal = targetState == DocScanRoute.PAYWALL || targetState == DocScanRoute.CAPTURE
+                val isClosingModal = initialState == DocScanRoute.PAYWALL || initialState == DocScanRoute.CAPTURE
+                when {
+                    isModal -> (slideInVertically(tween(240, easing = FastOutSlowInEasing)) { it / 8 } + fadeIn(tween(200))) togetherWith
+                        fadeOut(tween(150))
+                    isClosingModal -> fadeIn(tween(180)) togetherWith
+                        (slideOutVertically(tween(180)) { it / 8 } + fadeOut(tween(160)))
+                    targetState == DocScanRoute.HOME_LIBRARY -> (slideInHorizontally(tween(220, easing = FastOutSlowInEasing)) { -it / 10 } + fadeIn(tween(200))) togetherWith
+                        (slideOutHorizontally(tween(160)) { it / 10 } + fadeOut(tween(150)))
+                    else -> (slideInHorizontally(tween(220, easing = FastOutSlowInEasing)) { it / 10 } + fadeIn(tween(200))) togetherWith
+                        (slideOutHorizontally(tween(160)) { -it / 10 } + fadeOut(tween(150)))
+                }
+            }
+        },
+        label = "routeTransition",
+    ) { route ->
+        when (route) {
         DocScanRoute.ONBOARDING -> OnboardingScreen(
             onGetStarted = {
                 AnalyticsTracker.logEvent(context, "onboarding_complete")
@@ -218,5 +268,6 @@ fun DocScanAppRoot() {
                 state.activeTab = MainTab.LIBRARY
             },
         )
+        }
     }
 }

@@ -1,4 +1,6 @@
+import ImageIO
 import SwiftUI
+import UIKit
 
 /// Cybernetic Scanner Minimal design tokens for iOS (matching Stitch design system).
 enum DocScanColors {
@@ -57,6 +59,40 @@ struct DocCardSurface<Content: View>: View {
     }
 }
 
+struct DocCircleIconButton: View {
+    let systemImage: String
+    var accessibilityLabel: String = ""
+    var visualSize: CGFloat = 36
+    var foreground: Color = DocScanColors.textPrimary
+    var background: Color = DocScanColors.surfaceCard
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .foregroundStyle(foreground)
+                .frame(width: visualSize, height: visualSize)
+                .background(background)
+                .clipShape(Circle())
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel.isEmpty ? systemImage : accessibilityLabel)
+    }
+}
+
+struct ScalePressButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var scale: CGFloat = 0.92
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? scale : 1.0)
+            .animation(reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
 struct QuotaChipView: View {
     let usedToday: Int
     let dailyLimit: Int
@@ -67,9 +103,9 @@ struct QuotaChipView: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: "bolt.fill")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
                 Text(isPro ? "PRO · UNLIMITED" : "\(usedToday)/\(dailyLimit) today")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .font(.caption2.weight(.medium).monospaced())
             }
             .foregroundStyle(DocScanColors.scanGlow)
             .padding(.horizontal, 10)
@@ -79,6 +115,8 @@ struct QuotaChipView: View {
             .overlay(
                 Capsule().stroke(isPro ? DocScanColors.tertiary : DocScanColors.scanGlow.opacity(0.35), lineWidth: 1)
             )
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -119,21 +157,34 @@ struct LocalFirstTrustBanner: View {
 
 struct FilterMatrixBar: View {
     @Binding var selected: EnhanceFilterMode
+    @Namespace private var filterNS
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(EnhanceFilterMode.allCases, id: \.self) { mode in
                 let isSelected = selected == mode
                 Button {
-                    selected = mode
+                    if reduceMotion {
+                        selected = mode
+                    } else {
+                        withAnimation(.spring(response: 0.26, dampingFraction: 0.8)) {
+                            selected = mode
+                        }
+                    }
                 } label: {
                     Text(mode.label)
                         .font(.caption.weight(isSelected ? .semibold : .medium))
                         .foregroundStyle(isSelected ? DocScanColors.scanGlow : DocScanColors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(isSelected ? DocScanColors.surfaceOverlay : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background {
+                            if isSelected {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(DocScanColors.surfaceOverlay)
+                                    .matchedGeometryEffect(id: "filterPill", in: filterNS)
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
             }
@@ -152,6 +203,7 @@ struct OcrInspectionCard: View {
     let text: String
     let languageLabel: String
     @State private var copied = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -162,11 +214,18 @@ struct OcrInspectionCard: View {
                 Spacer()
                 Button {
                     UIPasteboard.general.string = text
-                    copied = true
+                    if reduceMotion {
+                        copied = true
+                    } else {
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            copied = true
+                        }
+                    }
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 12))
+                            .font(.caption.weight(.medium))
+                            .contentTransition(.symbolEffect(.replace))
                         Text(copied ? "Copied" : "Copy text")
                             .font(.caption.weight(.medium))
                     }
@@ -184,12 +243,12 @@ struct OcrInspectionCard: View {
             }
 
             Text(text.isEmpty ? "No OCR text extracted yet." : text)
-                .font(.system(size: 12, design: .monospaced))
+                .font(.caption.monospaced())
                 .foregroundStyle(DocScanColors.textSecondary)
                 .textSelection(.enabled)
 
             Text(languageLabel)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(.caption2.weight(.medium).monospaced())
                 .foregroundStyle(DocScanColors.tertiary)
         }
         .padding(16)
@@ -199,12 +258,25 @@ struct OcrInspectionCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(DocScanColors.borderSubtle, lineWidth: 1)
         )
+        .task(id: copied) {
+            guard copied else { return }
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            if reduceMotion {
+                copied = false
+            } else {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    copied = false
+                }
+            }
+        }
     }
 }
 
 struct InteractiveQuadOverlay: View {
     @Binding var corners: [CGPoint] // normalized 0...1
+    var onDragStateChange: ((Bool) -> Void)? = nil
     @State private var activeIndex: Int? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -244,19 +316,9 @@ struct InteractiveQuadOverlay: View {
                                     .frame(width: 18, height: 18)
                                     .overlay(Circle().fill(Color.white).frame(width: 10, height: 10))
                             )
+                            .animation(reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.75), value: isDragging)
+                            .frame(width: 44, height: 44)
                             .position(p)
-                            .gesture(
-                                DragGesture(minimumDistance: 0)
-                                    .onChanged { value in
-                                        activeIndex = idx
-                                        let nx = min(max(value.location.x / w, 0.03), 0.97)
-                                        let ny = min(max(value.location.y / h, 0.03), 0.97)
-                                        corners[idx] = CGPoint(x: nx, y: ny)
-                                    }
-                                    .onEnded { _ in
-                                        activeIndex = nil
-                                    }
-                            )
                     }
 
                     if let active = activeIndex, active < pts.count {
@@ -274,9 +336,90 @@ struct InteractiveQuadOverlay: View {
                                 }
                             )
                             .position(x: lx, y: ly)
+                            .transition(reduceMotion ? .opacity : .scale(scale: 0.75).combined(with: .opacity))
                     }
                 }
             }
+            .contentShape(Rectangle())
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if activeIndex == nil {
+                            var bestIdx: Int? = nil
+                            var bestDist: CGFloat = .greatestFiniteMagnitude
+                            for (idx, p) in pts.enumerated() {
+                                let d = hypot(p.x - value.startLocation.x, p.y - value.startLocation.y)
+                                if d < bestDist && d <= 44 {
+                                    bestDist = d
+                                    bestIdx = idx
+                                }
+                            }
+                            activeIndex = bestIdx
+                            onDragStateChange?(bestIdx != nil)
+                        }
+                        guard let idx = activeIndex, idx < corners.count else { return }
+                        let nx = min(max(value.location.x / w, 0.03), 0.97)
+                        let ny = min(max(value.location.y / h, 0.03), 0.97)
+                        corners[idx] = CGPoint(x: nx, y: ny)
+                    }
+                    .onEnded { _ in
+                        activeIndex = nil
+                        onDragStateChange?(false)
+                    }
+            )
         }
+    }
+}
+
+struct DocPageThumbnailView: View {
+    let imagePath: String
+    var fallbackIcon: String = "doc.text.fill"
+    var iconFont: Font = .title3
+    var maxDimension: CGFloat = 512
+
+    @State private var loadedImage: UIImage? = nil
+
+    var body: some View {
+        ZStack {
+            DocScanColors.surfaceRaised
+            if let img = loadedImage {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: fallbackIcon)
+                    .font(iconFont)
+                    .foregroundStyle(DocScanColors.scanGlow)
+            }
+        }
+        .clipped()
+        .task(id: imagePath) {
+            guard !imagePath.isEmpty else {
+                loadedImage = nil
+                return
+            }
+            loadedImage = await Task.detached(priority: .utility) {
+                Self.loadDownsampled(path: imagePath, maxPixelSize: maxDimension)
+            }.value
+        }
+    }
+
+    private static func loadDownsampled(path: String, maxPixelSize: CGFloat) -> UIImage? {
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let sourceOpts = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, sourceOpts) else {
+            return UIImage(contentsOfFile: path)
+        }
+        let thumbOpts = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        ] as CFDictionary
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOpts) else {
+            return UIImage(contentsOfFile: path)
+        }
+        return UIImage(cgImage: cgImage)
     }
 }

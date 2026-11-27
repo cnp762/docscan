@@ -10,13 +10,7 @@ struct DocumentDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .foregroundStyle(DocScanColors.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(DocScanColors.surfaceCard)
-                        .clipShape(Circle())
-                }
+                DocCircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
                 if let doc = state.selectedDocument {
                     VStack(alignment: .leading) {
                         Text(doc.name).font(.headline).foregroundStyle(DocScanColors.textPrimary).lineLimit(1)
@@ -31,20 +25,23 @@ struct DocumentDetailView: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         DocCardSurface(backgroundColor: DocScanColors.surfaceRaised) {
-                            VStack(spacing: 6) {
-                                Image(systemName: "doc.text.fill")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(DocScanColors.scanGlow)
-                                Text(doc.name)
-                                    .font(.headline)
-                                    .foregroundStyle(DocScanColors.textPrimary)
-                                Text("Ready for export · Private on this phone")
-                                    .font(.caption)
-                                    .foregroundStyle(DocScanColors.textSecondary)
+                            ZStack {
+                                DocPageThumbnailView(imagePath: doc.imagePath, iconFont: .largeTitle, maxDimension: 768)
+                                if doc.imagePath.isEmpty {
+                                    VStack(spacing: 4) {
+                                        Spacer()
+                                        Text(doc.name)
+                                            .font(.headline)
+                                            .foregroundStyle(DocScanColors.textPrimary)
+                                        Text("Ready for export · Private on this phone")
+                                            .font(.caption)
+                                            .foregroundStyle(DocScanColors.textSecondary)
+                                    }
+                                    .padding(12)
+                                }
                             }
                             .frame(maxWidth: .infinity)
                             .frame(height: 150)
-                            .background(DocScanColors.surfaceCard)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
 
@@ -184,13 +181,7 @@ struct SearchFilterView: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .foregroundStyle(DocScanColors.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(DocScanColors.surfaceCard)
-                        .clipShape(Circle())
-                }
+                DocCircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
                 Text("Search").font(.headline).foregroundStyle(DocScanColors.textPrimary)
                 Spacer()
             }
@@ -241,7 +232,7 @@ struct SearchFilterView: View {
                             DocCardSurface {
                                 Text(doc.name).font(.subheadline.weight(.semibold)).foregroundStyle(DocScanColors.textPrimary)
                                 Text(doc.ocrText.replacingOccurrences(of: "\n", with: " · "))
-                                    .font(.system(size: 12, design: .monospaced))
+                                    .font(.caption.monospaced())
                                     .foregroundStyle(DocScanColors.tertiary)
                                     .lineLimit(2)
                             }
@@ -266,13 +257,7 @@ struct ExportShareView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .foregroundStyle(DocScanColors.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(DocScanColors.surfaceCard)
-                        .clipShape(Circle())
-                }
+                DocCircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
                 VStack(alignment: .leading) {
                     Text("Export & Share").font(.headline).foregroundStyle(DocScanColors.textPrimary)
                     Text(state.selectedDocument?.name ?? "Document").font(.caption).foregroundStyle(DocScanColors.textSecondary)
@@ -378,13 +363,7 @@ struct BackupView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .foregroundStyle(DocScanColors.textPrimary)
-                        .frame(width: 36, height: 36)
-                        .background(DocScanColors.surfaceCard)
-                        .clipShape(Circle())
-                }
+                DocCircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
                 VStack(alignment: .leading) {
                     Text("Backup & Sync").font(.headline).foregroundStyle(DocScanColors.textPrimary)
                     Text(state.lastSyncMessage).font(.caption).foregroundStyle(DocScanColors.textSecondary)
@@ -457,17 +436,11 @@ struct PaywallView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .foregroundStyle(DocScanColors.textPrimary)
-                            .frame(width: 36, height: 36)
-                            .background(DocScanColors.surfaceCard)
-                            .clipShape(Circle())
-                    }
+                    DocCircleIconButton(systemImage: "xmark", accessibilityLabel: "Close", action: onClose)
                     Text("Go Pro").font(.headline).foregroundStyle(DocScanColors.textPrimary)
                     Spacer()
                     Text("DOCSCAN PRO")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .font(.caption2.weight(.semibold).monospaced())
                         .foregroundStyle(DocScanColors.scanGlow)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -484,7 +457,7 @@ struct PaywallView: View {
 
                 DocCardSurface(borderColor: DocScanColors.scanGlow.opacity(0.3)) {
                     Text("WHAT'S INCLUDED")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .font(.caption2.weight(.semibold).monospaced())
                         .foregroundStyle(DocScanColors.scanGlow)
                     PaywallBenefit(icon: "infinity", title: "Unlimited scans", subtitle: "No 5/day limit while Pro is active")
                     PaywallBenefit(icon: "doc.viewfinder", title: "Continuous capture", subtitle: "Keep scanning when free daily quota would block you")
@@ -505,7 +478,7 @@ struct PaywallView: View {
                                 VStack(alignment: .leading, spacing: 3) {
                                     if let badge = plan.badge {
                                         Text(badge)
-                                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                            .font(.caption2.weight(.bold).monospaced())
                                             .foregroundStyle(DocScanColors.scanGlow)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 2)
@@ -579,13 +552,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Button(action: onBack) {
-                        Image(systemName: "chevron.left")
-                            .foregroundStyle(DocScanColors.textPrimary)
-                            .frame(width: 36, height: 36)
-                            .background(DocScanColors.surfaceCard)
-                            .clipShape(Circle())
-                    }
+                    DocCircleIconButton(systemImage: "chevron.left", accessibilityLabel: "Back", action: onBack)
                     Text("Settings").font(.headline).foregroundStyle(DocScanColors.textPrimary)
                     Spacer()
                 }
@@ -623,7 +590,7 @@ struct SettingsView: View {
                 }
 
                 Text("PREFERENCES")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.caption2.weight(.semibold).monospaced())
                     .foregroundStyle(DocScanColors.textMuted)
                 DocCardSurface {
                     Toggle("Auto-capture", isOn: $state.autoCaptureEnabled).tint(DocScanColors.scanGlow)
@@ -634,7 +601,7 @@ struct SettingsView: View {
                 .foregroundStyle(DocScanColors.textPrimary)
 
                 Text("BACKUP")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.caption2.weight(.semibold).monospaced())
                     .foregroundStyle(DocScanColors.textMuted)
                 Button { state.route = .backup } label: {
                     DocCardSurface {
