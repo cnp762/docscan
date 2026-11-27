@@ -345,7 +345,7 @@ fun CameraPermissionScreen(
             ) {
                 Icon(Icons.Rounded.Lock, contentDescription = null, tint = DocScanColors.TextMuted, modifier = Modifier.size(12.dp))
                 Spacer(Modifier.size(4.dp))
-                Text("Zero cloud storage by default", style = MaterialTheme.typography.bodySmall, color = DocScanColors.TextMuted)
+                Text("Scanning stays on your phone", style = MaterialTheme.typography.bodySmall, color = DocScanColors.TextMuted)
             }
         }
     }
