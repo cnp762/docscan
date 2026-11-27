@@ -99,6 +99,7 @@ data class SuggestCandidate(
     val confidencePercent: Int,
     val isDocument: Boolean,
     val selected: Boolean,
+    val mediaUri: String? = null,
 )
 
 class DocScanAppState(
@@ -109,6 +110,8 @@ class DocScanAppState(
     companion object {
         const val FREE_DAILY_QUOTA = 5
     }
+
+    val modelsDir: File? get() = runtime.modelsDir
 
     var currentRoute by mutableStateOf(DocScanRoute.ONBOARDING)
     var activeTab by mutableStateOf(MainTab.LIBRARY)
@@ -138,13 +141,8 @@ class DocScanAppState(
     var searchQuery by mutableStateOf("")
     var searchOnlyTagged by mutableStateOf(false)
 
-    val suggestCandidates = mutableStateListOf(
-        SuggestCandidate("sug-1", "Receipt", "Blue Bottle Coffee", "Yesterday · $14.20", 98, true, true),
-        SuggestCandidate("sug-2", "Contract", "NDA Addendum P.1", "2 days ago · Legal", 94, true, true),
-        SuggestCandidate("sug-3", "Invoice", "Studio Rig Invoice", "4 days ago · $480.00", 91, true, true),
-        SuggestCandidate("sug-4", "Portrait", "Portrait photo", "3 days ago", 12, false, false),
-        SuggestCandidate("sug-5", "Scene", "Coastline sunset", "5 days ago", 5, false, false),
-    )
+    val suggestCandidates = mutableStateListOf<SuggestCandidate>()
+    var isScanningSuggestions by mutableStateOf(false)
 
     var googleDriveConnected by mutableStateOf(false)
     var googlePhotosConnected by mutableStateOf(false)
@@ -253,8 +251,22 @@ class DocScanAppState(
         scope.launch {
             uris.forEachIndexed { idx, uri ->
                 val pageId = UUID.randomUUID().toString()
-                val file = withContext(Dispatchers.IO) {
-                    fileStorage.copyUriToPageFile(pageId, uri)
+                val (file, detectedCorners) = withContext(Dispatchers.IO) {
+                    val saved = fileStorage.copyUriToPageFile(pageId, uri)
+                    val bmp = saved?.let { decodeBitmap(it.absolutePath) }
+                    val quad = bmp?.let { runtime.engine.detectDocument(it) }
+                    val corners = if (bmp != null && quad != null && bmp.width > 0 && bmp.height > 0) {
+                        listOf(
+                            Offset((quad.topLeft.x / bmp.width).coerceIn(0.02f, 0.98f), (quad.topLeft.y / bmp.height).coerceIn(0.02f, 0.98f)),
+                            Offset((quad.topRight.x / bmp.width).coerceIn(0.02f, 0.98f), (quad.topRight.y / bmp.height).coerceIn(0.02f, 0.98f)),
+                            Offset((quad.bottomRight.x / bmp.width).coerceIn(0.02f, 0.98f), (quad.bottomRight.y / bmp.height).coerceIn(0.02f, 0.98f)),
+                            Offset((quad.bottomLeft.x / bmp.width).coerceIn(0.02f, 0.98f), (quad.bottomLeft.y / bmp.height).coerceIn(0.02f, 0.98f)),
+                        )
+                    } else {
+                        DraftPage.defaultQuad()
+                    }
+                    bmp?.recycle()
+                    saved to corners
                 }
                 draftPages += DraftPage(
                     id = pageId,
@@ -262,6 +274,7 @@ class DocScanAppState(
                     sourceUri = uri,
                     imagePath = file?.absolutePath.orEmpty(),
                     enhanceMode = defaultEnhance,
+                    corners = detectedCorners,
                 )
             }
             activeDraftIndex = 0
@@ -269,10 +282,52 @@ class DocScanAppState(
         }
     }
 
+    fun refreshLibrarySuggestions() {
+        if (!photoPermissionGranted || isScanningSuggestions) return
+        isScanningSuggestions = true
+        scope.launch {
+            val provider = cam.docscan.engine.suggest.MediaStoreSuggestProvider(context)
+            val scorer = cam.docscan.engine.suggest.SuggestScorer()
+            val items = provider.loadChunk(cursor = null, limit = 60)
+            val scored = withContext(Dispatchers.IO) {
+                items.mapNotNull { item ->
+                    val thumb = provider.loadThumb(item.mediaId) ?: return@mapNotNull null
+                    val score = scorer.score(thumb)
+                    thumb.recycle()
+                    val pct = (score * 100).toInt().coerceIn(0, 100)
+                    val isDoc = score >= 0.55f
+                    val ageDays = ((System.currentTimeMillis() - item.takenAtMs) / 86_400_000L).coerceAtLeast(0L)
+                    val ageLabel = when (ageDays) {
+                        0L -> "Today"
+                        1L -> "Yesterday"
+                        else -> "$ageDays days ago"
+                    }
+                    SuggestCandidate(
+                        id = item.mediaId,
+                        category = if (isDoc) "Document" else "Photo",
+                        title = if (isDoc) "Document candidate" else "Recent photo",
+                        subtitle = "$ageLabel · ${item.width}×${item.height}",
+                        confidencePercent = pct,
+                        isDocument = isDoc,
+                        selected = isDoc,
+                        mediaUri = item.mediaId,
+                    )
+                }.sortedByDescending { it.confidencePercent }
+            }
+            suggestCandidates.clear()
+            suggestCandidates.addAll(scored)
+            isScanningSuggestions = false
+        }
+    }
+
     fun importSelectedSuggestions() {
         val chosen = suggestCandidates.filter { it.selected }
         if (chosen.isEmpty()) return
-        // Suggest media provider still stubbed — keep as review placeholders without fake OCR.
+        val uris = chosen.mapNotNull { cand -> cand.mediaUri?.let { Uri.parse(it) } }
+        if (uris.isNotEmpty()) {
+            importUris(uris)
+            return
+        }
         editingDocumentId = null
         draftPages.clear()
         chosen.forEach { item ->
@@ -292,7 +347,13 @@ class DocScanAppState(
             id = doc.id,
             title = doc.name,
             imagePath = doc.imagePath,
-            enhanceMode = defaultEnhance,
+            enhanceMode = EnhancePreset.ORIGINAL,
+            corners = listOf(
+                Offset(0.03f, 0.03f),
+                Offset(0.97f, 0.03f),
+                Offset(0.97f, 0.97f),
+                Offset(0.03f, 0.97f),
+            ),
             ocrText = doc.ocrText.orEmpty(),
         )
         activeDraftIndex = 0
@@ -344,22 +405,28 @@ class DocScanAppState(
                 val first = snapshot.first()
                 if (existing != null) {
                     val pathChanged = first.imagePath.isNotBlank() && first.imagePath != existing.imagePath
-                    if (pathChanged || first.enhanceMode != defaultEnhance) {
-                        val bitmap = withContext(Dispatchers.IO) { decodeBitmap(first.imagePath) }
-                        if (bitmap != null) {
-                            val quad = cornersToQuad(first.corners, bitmap.width, bitmap.height)
+                    val geomChanged = first.rotationDegrees != 0 || first.corners != DraftPage.defaultQuad()
+                    if (pathChanged || first.enhanceMode != defaultEnhance || geomChanged) {
+                        val processed = withContext(Dispatchers.IO) {
+                            val raw = decodeBitmap(first.imagePath.ifBlank { existing.imagePath }) ?: return@withContext null
+                            val out = applyDraftEdits(raw, first)
+                            val saved = fileStorage.saveBitmap(existing.id, out)
+                            if (out !== raw) raw.recycle()
+                            out to saved.absolutePath
+                        }
+                        if (processed != null) {
                             runtime.pipeline.enqueuePage(
-                                image = bitmap,
+                                image = processed.first,
                                 batchId = existing.batchId,
-                                quad = quad,
-                                preset = first.enhanceMode,
-                                imagePath = first.imagePath.ifBlank { existing.imagePath },
+                                quad = null,
+                                preset = EnhancePreset.ORIGINAL,
+                                imagePath = processed.second,
                                 source = existing.source,
                                 sortIndex = existing.sortIndex,
                                 pageId = existing.id,
                                 freshScan = false,
                                 needDetect = false,
-                                needEnhance = first.enhanceMode != EnhancePreset.ORIGINAL,
+                                needEnhance = false,
                             )
                         }
                     } else {
@@ -370,29 +437,32 @@ class DocScanAppState(
                 val batchId = if (snapshot.size > 1) UUID.randomUUID().toString() else null
                 var firstId: String? = null
                 snapshot.forEachIndexed { idx, draft ->
-                    val persistedPath = withContext(Dispatchers.IO) {
-                        when {
+                    val prepared = withContext(Dispatchers.IO) {
+                        val rawPath = when {
                             draft.imagePath.isNotBlank() && File(draft.imagePath).exists() -> draft.imagePath
                             draft.sourceUri != null ->
                                 fileStorage.copyUriToPageFile(draft.id, draft.sourceUri)?.absolutePath.orEmpty()
                             else -> draft.imagePath
                         }
-                    }
-                    if (persistedPath.isBlank()) return@forEachIndexed
-                    val bitmap = withContext(Dispatchers.IO) { decodeBitmap(persistedPath) } ?: return@forEachIndexed
-                    val quad = cornersToQuad(draft.corners, bitmap.width, bitmap.height)
+                        if (rawPath.isBlank()) return@withContext null
+                        val raw = decodeBitmap(rawPath) ?: return@withContext null
+                        val processed = applyDraftEdits(raw, draft)
+                        val saved = fileStorage.saveBitmap(draft.id, processed)
+                        if (processed !== raw) raw.recycle()
+                        processed to saved.absolutePath
+                    } ?: return@forEachIndexed
                     val work = runtime.pipeline.enqueuePage(
-                        image = bitmap,
+                        image = prepared.first,
                         batchId = batchId,
-                        quad = quad,
-                        preset = draft.enhanceMode,
-                        imagePath = persistedPath,
+                        quad = null,
+                        preset = EnhancePreset.ORIGINAL,
+                        imagePath = prepared.second,
                         source = if (draft.sourceUri != null) "import" else "camera",
                         sortIndex = idx,
                         pageId = draft.id,
                         freshScan = true,
                         needDetect = false,
-                        needEnhance = draft.enhanceMode != EnhancePreset.ORIGINAL,
+                        needEnhance = false,
                     )
                     if (firstId == null) firstId = work.pageId
                 }
@@ -435,6 +505,79 @@ class DocScanAppState(
             fileStorage.clearAllFiles()
         }
         statusBanner = "Local library cleared"
+    }
+
+    fun deleteSelectedDocument() {
+        val doc = selectedDocument() ?: return
+        selectedDocumentId = null
+        scope.launch {
+            runtime.repo.deletePage(doc.id)
+            if (doc.imagePath.isNotBlank()) {
+                File(doc.imagePath).delete()
+            }
+        }
+        statusBanner = "Document deleted"
+        currentRoute = DocScanRoute.HOME_LIBRARY
+    }
+
+    fun renameSelectedDocument(newName: String) {
+        val clean = newName.trim()
+        val doc = selectedDocument() ?: return
+        if (clean.isEmpty()) return
+        scope.launch {
+            runtime.repo.insert(doc.copy(name = clean))
+        }
+        statusBanner = "Renamed to $clean"
+    }
+
+    fun needsGoogleSignIn(): Boolean = cloudBackup.getSignedInAccount() == null
+
+    fun buildGoogleSignInIntent(includePhotos: Boolean) = cloudBackup.buildSignInIntent(includePhotos)
+
+    fun onGoogleSignInResult(granted: Boolean) {
+        if (granted && cloudBackup.getSignedInAccount() != null) {
+            statusBanner = "Google account connected for backup"
+        } else {
+            googleDriveConnected = false
+            googlePhotosConnected = false
+            statusBanner = "Google sign-in cancelled"
+        }
+    }
+
+    fun syncBackupNow() {
+        if (!googleDriveConnected && !googlePhotosConnected) {
+            lastSyncMessage = "Connect Drive or Photos first"
+            return
+        }
+        val targets = if (backupEntireLibrary) documents.toList() else listOfNotNull(selectedDocument())
+        if (targets.isEmpty()) {
+            lastSyncMessage = "No pages to sync"
+            return
+        }
+        lastSyncMessage = "Syncing ${targets.size} page(s)..."
+        scope.launch {
+            var uploaded = 0
+            var failed = 0
+            for (page in targets) {
+                val file = File(page.imagePath)
+                if (!file.exists()) continue
+                val displayName = "${page.name.ifBlank { "Scan" }}_${page.id.take(6)}.jpg"
+                var ok = true
+                if (googleDriveConnected) {
+                    ok = ok && cloudBackup.uploadImageToDrive(file, displayName).isSuccess
+                }
+                if (googlePhotosConnected) {
+                    ok = ok && cloudBackup.uploadImageToPhotos(file, displayName).isSuccess
+                }
+                if (ok) uploaded++ else failed++
+            }
+            lastSyncMessage = if (failed == 0) {
+                "Synced $uploaded image(s) just now"
+            } else {
+                "Synced $uploaded, failed $failed (check Google sign-in)"
+            }
+            AnalyticsTracker.logEvent(context, "backup_sync", mapOf("uploaded" to uploaded, "failed" to failed))
+        }
     }
 
     fun deleteAccountAndData() {
@@ -529,6 +672,31 @@ class DocScanAppState(
             }
         }
         return sample
+    }
+
+    private suspend fun applyDraftEdits(raw: Bitmap, draft: DraftPage): Bitmap {
+        val enhanceEngine = cam.docscan.engine.enhance.BitmapEnhanceEngine()
+        var current = raw
+        val isFullBleed = draft.corners.size == 4 &&
+            draft.corners[0].x <= 0.04f && draft.corners[0].y <= 0.04f &&
+            draft.corners[2].x >= 0.96f && draft.corners[2].y >= 0.96f
+        if (!isFullBleed && draft.corners.size == 4) {
+            val quad = cornersToQuad(draft.corners, current.width, current.height)
+            val warped = enhanceEngine.perspectiveWarp(current, quad)
+            if (warped !== current && current !== raw) current.recycle()
+            current = warped
+        }
+        if (draft.rotationDegrees % 360 != 0) {
+            val rotated = enhanceEngine.rotate(current, draft.rotationDegrees)
+            if (rotated !== current && current !== raw) current.recycle()
+            current = rotated
+        }
+        if (draft.enhanceMode != EnhancePreset.ORIGINAL) {
+            val enhanced = runtime.engine.enhance(current, draft.enhanceMode)
+            if (enhanced !== current && current !== raw) current.recycle()
+            current = enhanced
+        }
+        return current
     }
 
     private fun cornersToQuad(corners: List<Offset>, width: Int, height: Int): Quad {

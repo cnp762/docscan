@@ -101,10 +101,28 @@ fun DocScanAppRoot() {
         }
     }
 
+    val filesPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            state.importUris(uris)
+        }
+    }
+
     val launchPhotoPicker = {
         photoPickerLauncher.launch(
             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
         )
+    }
+
+    val launchFilesPicker = {
+        filesPickerLauncher.launch(arrayOf("image/*"))
+    }
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { res ->
+        state.onGoogleSignInResult(res.resultCode == android.app.Activity.RESULT_OK)
     }
 
     BackHandler(enabled = state.currentRoute != DocScanRoute.HOME_LIBRARY && state.currentRoute != DocScanRoute.ONBOARDING) {
@@ -184,7 +202,7 @@ fun DocScanAppRoot() {
                 }
                 photoPermissionLauncher.launch(perm)
             },
-            onSelectManually = launchPhotoPicker,
+            onSelectManually = launchFilesPicker,
             onNotNow = {
                 state.currentRoute = DocScanRoute.HOME_LIBRARY
                 state.activeTab = MainTab.LIBRARY
@@ -254,6 +272,9 @@ fun DocScanAppRoot() {
         DocScanRoute.BACKUP -> BackupScreen(
             state = state,
             onBack = { state.currentRoute = DocScanRoute.HOME_LIBRARY },
+            onRequestGoogleAuth = { includePhotos ->
+                googleSignInLauncher.launch(state.buildGoogleSignInIntent(includePhotos))
+            },
         )
 
         DocScanRoute.PAYWALL -> PaywallScreen(

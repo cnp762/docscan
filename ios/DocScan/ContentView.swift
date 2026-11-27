@@ -1,9 +1,11 @@
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var state = DocScanAppState()
     @State private var showPhotoPicker = false
+    @State private var showFileImporter = false
     @State private var pickedItems: [PhotosPickerItem] = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -62,10 +64,19 @@ struct ContentView: View {
             case .photoPermission:
                 PhotoPermissionView(
                     onAllowAccess: {
-                        state.photoPermissionGranted = true
-                        state.route = .librarySuggest
+                        Task {
+                            let granted = await PhotoKitSuggestProvider.requestAuthorization()
+                            state.photoPermissionGranted = granted
+                            if granted {
+                                state.route = .librarySuggest
+                                state.refreshLibrarySuggestions()
+                            } else {
+                                state.route = .homeLibrary
+                                state.activeTab = .library
+                            }
+                        }
                     },
-                    onSelectManually: { showPhotoPicker = true },
+                    onSelectManually: { showFileImporter = true },
                     onNotNow: {
                         state.route = .homeLibrary
                         state.activeTab = .library
@@ -151,10 +162,40 @@ struct ContentView: View {
             }
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $pickedItems, maxSelectionCount: 10, matching: .images)
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.image],
+            allowsMultipleSelection: true
+        ) { result in
+            guard case .success(let urls) = result, !urls.isEmpty else { return }
+            var images: [UIImage] = []
+            for url in urls {
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
+                    images.append(img)
+                }
+            }
+            if !images.isEmpty {
+                state.importImages(images)
+            }
+        }
         .onChange(of: pickedItems) { _, newItems in
             guard !newItems.isEmpty else { return }
-            state.importPhotos(count: newItems.count)
+            let items = newItems
             pickedItems = []
+            Task {
+                var images: [UIImage] = []
+                for item in items {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let img = UIImage(data: data) {
+                        images.append(img)
+                    }
+                }
+                if !images.isEmpty {
+                    state.importImages(images)
+                }
+            }
         }
         .preferredColorScheme(.dark)
     }

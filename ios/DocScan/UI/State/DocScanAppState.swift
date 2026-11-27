@@ -114,6 +114,8 @@ enum ProPlanOption: String, CaseIterable, Identifiable {
 struct DraftPageItem: Identifiable {
     let id: String
     var title: String
+    var imagePath: String = ""
+    var source: String = "camera"
     var enhanceMode: EnhanceFilterMode
     var rotationDegrees: Int
     var corners: [CGPoint]
@@ -133,6 +135,8 @@ struct DocumentItem: Identifiable {
     let id: String
     var name: String
     var docType: String
+    var imagePath: String = ""
+    var source: String = "camera"
     var createdAt: Date
     var pageCount: Int
     var ocrText: String
@@ -150,6 +154,7 @@ struct SuggestCandidateItem: Identifiable {
     var confidencePercent: Int
     var isDocument: Bool
     var selected: Bool
+    var mediaId: String? = nil
 }
 
 @MainActor
@@ -183,13 +188,8 @@ final class DocScanAppState: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var searchOnlyTagged: Bool = false
 
-    @Published var suggestCandidates: [SuggestCandidateItem] = [
-        SuggestCandidateItem(id: "sug-1", category: "Receipt", title: "Blue Bottle Coffee", subtitle: "Yesterday · $14.20", confidencePercent: 98, isDocument: true, selected: true),
-        SuggestCandidateItem(id: "sug-2", category: "Contract", title: "NDA Addendum P.1", subtitle: "2 days ago · Legal", confidencePercent: 94, isDocument: true, selected: true),
-        SuggestCandidateItem(id: "sug-3", category: "Invoice", title: "Studio Rig Invoice", subtitle: "4 days ago · $480.00", confidencePercent: 91, isDocument: true, selected: true),
-        SuggestCandidateItem(id: "sug-4", category: "Portrait", title: "Portrait photo", subtitle: "3 days ago", confidencePercent: 12, isDocument: false, selected: false),
-        SuggestCandidateItem(id: "sug-5", category: "Scene", title: "Coastline sunset", subtitle: "5 days ago", confidencePercent: 5, isDocument: false, selected: false),
-    ]
+    @Published var suggestCandidates: [SuggestCandidateItem] = []
+    @Published var isScanningSuggestions: Bool = false
 
     // Backup (iOS: Google Drive + iCloud Drive + Google Photos; images only)
     @Published var googleDriveConnected: Bool = false
@@ -208,6 +208,7 @@ final class DocScanAppState: ObservableObject {
     @Published var statusBanner: String? = nil
 
     private let engine = DefaultDocScanEngine()
+    private lazy var pipeline = DocumentPipeline(engine: engine)
     let apiClient = DocScanAPIClient.shared
     let storeKit = StoreKitManager()
     private let localStore = DocScanStore.shared
@@ -215,26 +216,28 @@ final class DocScanAppState: ObservableObject {
     init() {
         self.isPro = storeKit.isPro
         let persisted = localStore.fetchAll()
-        if persisted.isEmpty {
-            seedDocuments()
-        } else {
-            self.documents = persisted.map { rec in
-                DocumentItem(
-                    id: rec.id,
-                    name: rec.name,
-                    docType: rec.docType ?? "Scanned",
-                    createdAt: rec.createdAt,
-                    pageCount: 1,
-                    ocrText: rec.ocrText,
-                    ocrLang: rec.ocrLang ?? "en",
-                    ocrConfidence: 0.98,
-                    summary: rec.summary ?? "",
-                    tags: rec.tags
-                )
-            }
+        self.documents = persisted.map { rec in
+            DocumentItem(
+                id: rec.id,
+                name: rec.name,
+                docType: rec.docType ?? "Scanned",
+                imagePath: rec.imagePath,
+                source: rec.source,
+                createdAt: rec.createdAt,
+                pageCount: 1,
+                ocrText: rec.ocrText,
+                ocrLang: rec.ocrLang ?? "en",
+                ocrConfidence: 0.98,
+                summary: rec.summary ?? "",
+                tags: rec.tags
+            )
         }
         Task {
             try? await engine.initialize()
+            await pipeline.setOnPageUpdated { [weak self] pageId, st in
+                guard let self else { return }
+                self.applyPipelineUpdate(pageId: pageId, state: st)
+            }
             try? await apiClient.ensureRegistered()
             if let status = try? await apiClient.getQuotaToday() {
                 self.quotaUsedToday = status.used
@@ -264,54 +267,103 @@ final class DocScanAppState: ObservableObject {
         route = cameraPermissionGranted ? .capture : .cameraPermission
     }
 
-    func addCapturedPage(title: String? = nil) {
+    func addCapturedImage(_ image: UIImage, corners: [CGPoint] = DraftPageItem.defaultQuad(), title: String? = nil) {
+        let pageId = UUID().uuidString
+        let savedPath = FileStorageManager.saveImage(image, pageId: pageId)?.path ?? ""
         let idx = draftPages.count + 1
         draftPages.append(
             DraftPageItem(
-                id: UUID().uuidString,
+                id: pageId,
                 title: title ?? "Scan \(idx)",
+                imagePath: savedPath,
+                source: "camera",
                 enhanceMode: defaultEnhance,
                 rotationDegrees: 0,
-                corners: DraftPageItem.defaultQuad(),
-                ocrText: "DOCSCAN CAPTURE #\(idx)\nProcessed locally on-device."
+                corners: corners,
+                ocrText: ""
             )
         )
         activeDraftIndex = max(draftPages.count - 1, 0)
     }
 
-    func importPhotos(count: Int) {
-        guard count > 0 else { return }
+    func importImages(_ images: [UIImage]) {
+        guard !images.isEmpty else { return }
         editingDocumentId = nil
-        draftPages = (0..<count).map { idx in
-            DraftPageItem(
-                id: UUID().uuidString,
-                title: "Imported Page \(idx + 1)",
-                enhanceMode: defaultEnhance,
-                rotationDegrees: 0,
-                corners: DraftPageItem.defaultQuad(),
-                ocrText: "Imported photo \(idx + 1)\nReady for perspective crop & OCR."
-            )
+        draftPages = []
+        Task {
+            var newDrafts: [DraftPageItem] = []
+            for (idx, image) in images.enumerated() {
+                let pageId = UUID().uuidString
+                let savedPath = FileStorageManager.saveImage(image, pageId: pageId)?.path ?? ""
+                let quad = await engine.detectDocument(image: image)
+                let corners = normalizedCorners(from: quad, imageSize: image.size)
+                newDrafts.append(
+                    DraftPageItem(
+                        id: pageId,
+                        title: "Imported Page \(idx + 1)",
+                        imagePath: savedPath,
+                        source: "import",
+                        enhanceMode: defaultEnhance,
+                        rotationDegrees: 0,
+                        corners: corners,
+                        ocrText: ""
+                    )
+                )
+            }
+            self.draftPages = newDrafts
+            self.activeDraftIndex = 0
+            self.route = .reviewEdit
         }
-        activeDraftIndex = 0
-        route = .reviewEdit
+    }
+
+    func refreshLibrarySuggestions() {
+        guard photoPermissionGranted, !isScanningSuggestions else { return }
+        isScanningSuggestions = true
+        Task {
+            let provider = PhotoKitSuggestProvider()
+            let items = await provider.loadChunk(cursor: nil, limit: 60)
+            var scored: [SuggestCandidateItem] = []
+            for item in items {
+                guard let thumb = await provider.loadThumb(mediaId: item.mediaId) else { continue }
+                let score = SuggestScorer.score(image: thumb)
+                let pct = min(max(Int(score * 100), 0), 100)
+                let isDoc = score >= 0.55
+                let takenDate = Date(timeIntervalSince1970: Double(item.takenAtMs) / 1000.0)
+                let days = max(0, Int(Date().timeIntervalSince(takenDate) / 86_400))
+                let ageLabel = days == 0 ? "Today" : (days == 1 ? "Yesterday" : "\(days) days ago")
+                scored.append(
+                    SuggestCandidateItem(
+                        id: item.mediaId,
+                        category: isDoc ? "Document" : "Photo",
+                        title: isDoc ? "Document candidate" : "Recent photo",
+                        subtitle: "\(ageLabel) · \(item.width)×\(item.height)",
+                        confidencePercent: pct,
+                        isDocument: isDoc,
+                        selected: isDoc,
+                        mediaId: item.mediaId
+                    )
+                )
+            }
+            self.suggestCandidates = scored.sorted { $0.confidencePercent > $1.confidencePercent }
+            self.isScanningSuggestions = false
+        }
     }
 
     func importSelectedSuggestions() {
         let chosen = suggestCandidates.filter { $0.selected }
         guard !chosen.isEmpty else { return }
-        editingDocumentId = nil
-        draftPages = chosen.map { item in
-            DraftPageItem(
-                id: UUID().uuidString,
-                title: item.title,
-                enhanceMode: defaultEnhance,
-                rotationDegrees: 0,
-                corners: DraftPageItem.defaultQuad(),
-                ocrText: "\(item.category): \(item.title)\n\(item.subtitle)"
-            )
+        Task {
+            let provider = PhotoKitSuggestProvider()
+            var images: [UIImage] = []
+            for item in chosen {
+                if let mediaId = item.mediaId, let img = await provider.loadFullImage(mediaId: mediaId) {
+                    images.append(img)
+                }
+            }
+            if !images.isEmpty {
+                self.importImages(images)
+            }
         }
-        activeDraftIndex = 0
-        route = .reviewEdit
     }
 
     func editExistingDocument(_ doc: DocumentItem) {
@@ -320,9 +372,16 @@ final class DocScanAppState: ObservableObject {
             DraftPageItem(
                 id: doc.id,
                 title: doc.name,
-                enhanceMode: defaultEnhance,
+                imagePath: doc.imagePath,
+                source: doc.source,
+                enhanceMode: .original,
                 rotationDegrees: 0,
-                corners: DraftPageItem.defaultQuad(),
+                corners: [
+                    CGPoint(x: 0.03, y: 0.03),
+                    CGPoint(x: 0.97, y: 0.03),
+                    CGPoint(x: 0.97, y: 0.97),
+                    CGPoint(x: 0.03, y: 0.97),
+                ],
                 ocrText: doc.ocrText
             )
         ]
@@ -365,47 +424,181 @@ final class DocScanAppState: ObservableObject {
 
             if let editId, let first = snapshot.first,
                let idx = self.documents.firstIndex(where: { $0.id == editId }) {
-                self.documents[idx].name = first.title
-                self.documents[idx].ocrText = first.ocrText
-            } else {
-                let newDoc = DocumentItem(
-                    id: UUID().uuidString,
-                    name: snapshot.first?.title ?? "Scanned Document",
-                    docType: "Invoices",
-                    createdAt: Date(),
-                    pageCount: count,
-                    ocrText: snapshot.map { $0.ocrText }.joined(separator: "\n\n"),
-                    ocrLang: "en",
-                    ocrConfidence: 0.99,
-                    summary: "Digitized locally on-device (\(count) page\(count > 1 ? "s" : "")).",
-                    tags: ["scanned"]
-                )
-                self.localStore.upsert(
-                    PersistedPageRecord(
-                        id: newDoc.id,
-                        name: newDoc.name,
-                        source: "camera",
-                        imagePath: "",
-                        createdAt: newDoc.createdAt,
-                        ocrText: newDoc.ocrText,
-                        ocrLang: newDoc.ocrLang,
-                        docType: newDoc.docType,
-                        tags: newDoc.tags,
-                        summary: newDoc.summary
+                let existing = self.documents[idx]
+                let geomChanged = first.rotationDegrees != 0 || first.corners != DraftPageItem.defaultQuad()
+                let pathChanged = !first.imagePath.isEmpty && first.imagePath != existing.imagePath
+                if (pathChanged || first.enhanceMode != defaultEnhance || geomChanged),
+                   let raw = FileStorageManager.loadImage(path: first.imagePath.isEmpty ? existing.imagePath : first.imagePath) {
+                    let processed = applyDraftEdits(raw: raw, draft: first)
+                    let savedPath = FileStorageManager.saveImage(processed, pageId: existing.id)?.path ?? existing.imagePath
+                    self.documents[idx].imagePath = savedPath
+                    self.documents[idx].name = first.title
+                    await pipeline.enqueuePage(
+                        pageId: existing.id,
+                        name: first.title,
+                        source: existing.source,
+                        imagePath: savedPath,
+                        image: processed,
+                        quad: nil,
+                        preset: .original,
+                        sortIndex: 0,
+                        freshScan: false
                     )
-                )
-                self.documents.insert(newDoc, at: 0)
-                self.selectedDocumentId = newDoc.id
-                AnalyticsTracker.logEvent("scan_save", params: ["n_pages": count, "source": "camera", "is_pro": self.isPro])
+                } else {
+                    self.documents[idx].name = first.title
+                    self.localStore.upsert(
+                        PersistedPageRecord(
+                            id: existing.id,
+                            name: first.title,
+                            source: existing.source,
+                            imagePath: existing.imagePath,
+                            createdAt: existing.createdAt,
+                            ocrText: existing.ocrText,
+                            ocrLang: existing.ocrLang,
+                            docType: existing.docType,
+                            tags: existing.tags,
+                            summary: existing.summary
+                        )
+                    )
+                }
+            } else {
+                let batchId = snapshot.count > 1 ? UUID().uuidString : nil
+                var firstId: String?
+                for (idx, draft) in snapshot.enumerated() {
+                    guard let raw = FileStorageManager.loadImage(path: draft.imagePath) else { continue }
+                    let processed = applyDraftEdits(raw: raw, draft: draft)
+                    let savedPath = FileStorageManager.saveImage(processed, pageId: draft.id)?.path ?? draft.imagePath
+                    let newDoc = DocumentItem(
+                        id: draft.id,
+                        name: draft.title,
+                        docType: "Scanned",
+                        imagePath: savedPath,
+                        source: draft.source,
+                        createdAt: Date(),
+                        pageCount: 1,
+                        ocrText: "",
+                        ocrLang: "en",
+                        ocrConfidence: 0.0,
+                        summary: "",
+                        tags: []
+                    )
+                    self.localStore.upsert(
+                        PersistedPageRecord(
+                            id: newDoc.id,
+                            batchId: batchId,
+                            name: newDoc.name,
+                            source: newDoc.source,
+                            imagePath: savedPath,
+                            createdAt: newDoc.createdAt,
+                            sortIndex: idx
+                        )
+                    )
+                    self.documents.insert(newDoc, at: 0)
+                    if firstId == nil { firstId = newDoc.id }
+                    await pipeline.enqueuePage(
+                        pageId: draft.id,
+                        batchId: batchId,
+                        name: draft.title,
+                        source: draft.source,
+                        imagePath: savedPath,
+                        image: processed,
+                        quad: nil,
+                        preset: .original,
+                        sortIndex: idx,
+                        freshScan: true
+                    )
+                }
+                if let firstId { self.selectedDocumentId = firstId }
+                let source = snapshot.first?.source ?? "camera"
+                AnalyticsTracker.logEvent("scan_save", params: ["n_pages": count, "source": source, "is_pro": self.isPro])
             }
 
             self.draftPages = []
             self.editingDocumentId = nil
-            self.statusBanner = "Saved \(count) page(s) locally"
+            self.statusBanner = "Saved \(count) page(s) — processing on device"
             self.route = .homeLibrary
             self.activeTab = .library
         }
         return true
+    }
+
+    private func applyPipelineUpdate(pageId: String, state st: DocumentPipeline.PageState) {
+        if let idx = documents.firstIndex(where: { $0.id == pageId }) {
+            documents[idx].name = st.name
+            if let text = st.ocr?.text { documents[idx].ocrText = text }
+            if let lang = st.lang?.lang ?? st.ocr?.lang { documents[idx].ocrLang = lang }
+            if let conf = st.lang?.confidence ?? st.ocr?.langConfidence { documents[idx].ocrConfidence = Double(conf) }
+            if let dt = st.docType?.docType { documents[idx].docType = dt }
+            if !st.tags.isEmpty { documents[idx].tags = st.tags }
+            if let sum = st.summary?.text { documents[idx].summary = sum }
+        }
+        let existing = localStore.fetchById(pageId)
+        localStore.upsert(
+            PersistedPageRecord(
+                id: pageId,
+                batchId: st.batchId ?? existing?.batchId,
+                name: st.name,
+                source: st.source,
+                imagePath: st.imagePath,
+                createdAt: existing?.createdAt ?? Date(),
+                ocrText: st.ocr?.text ?? existing?.ocrText ?? "",
+                ocrLang: st.lang?.lang ?? st.ocr?.lang ?? existing?.ocrLang,
+                docType: st.docType?.docType ?? existing?.docType,
+                tags: st.tags.isEmpty ? (existing?.tags ?? []) : st.tags,
+                summary: st.summary?.text ?? existing?.summary,
+                sortIndex: st.sortIndex
+            )
+        )
+    }
+
+    private func applyDraftEdits(raw: UIImage, draft: DraftPageItem) -> UIImage {
+        var current = raw
+        let isFullBleed = draft.corners.count == 4 &&
+            draft.corners[0].x <= 0.04 && draft.corners[0].y <= 0.04 &&
+            draft.corners[2].x >= 0.96 && draft.corners[2].y >= 0.96
+        if !isFullBleed && draft.corners.count == 4, let cg = current.cgImage {
+            let w = CGFloat(cg.width)
+            let h = CGFloat(cg.height)
+            let quad = DocQuad(
+                topLeft: DocPoint(x: draft.corners[0].x * w, y: draft.corners[0].y * h),
+                topRight: DocPoint(x: draft.corners[1].x * w, y: draft.corners[1].y * h),
+                bottomRight: DocPoint(x: draft.corners[2].x * w, y: draft.corners[2].y * h),
+                bottomLeft: DocPoint(x: draft.corners[3].x * w, y: draft.corners[3].y * h)
+            )
+            current = ImageEnhance.perspectiveWarp(current, quad: quad)
+        }
+        if draft.rotationDegrees % 360 != 0 {
+            current = ImageEnhance.rotate(current, degrees: draft.rotationDegrees)
+        }
+        let preset = toEnginePreset(draft.enhanceMode)
+        if preset != .original {
+            current = engine.enhance(image: current, preset: preset)
+        }
+        return current
+    }
+
+    private func toEnginePreset(_ mode: EnhanceFilterMode) -> EnhancePreset {
+        switch mode {
+        case .original: return .original
+        case .color: return .color
+        case .gray: return .gray
+        case .bw: return .bw
+        case .docClean: return .document
+        case .deshadow: return .deshadow
+        }
+    }
+
+    private func normalizedCorners(from quad: DocQuad?, imageSize: CGSize) -> [CGPoint] {
+        guard let quad, imageSize.width > 0, imageSize.height > 0 else {
+            return DraftPageItem.defaultQuad()
+        }
+        func pt(_ p: DocPoint) -> CGPoint {
+            CGPoint(
+                x: min(max(p.x / imageSize.width, 0.02), 0.98),
+                y: min(max(p.y / imageSize.height, 0.02), 0.98)
+            )
+        }
+        return [pt(quad.topLeft), pt(quad.topRight), pt(quad.bottomRight), pt(quad.bottomLeft)]
     }
 
     func addTagToSelected(_ raw: String) {
@@ -430,6 +623,104 @@ final class DocScanAppState: ObservableObject {
         statusBanner = "Local library cleared"
     }
 
+    func deleteSelectedDocument() {
+        guard let doc = selectedDocument else { return }
+        documents.removeAll { $0.id == doc.id }
+        selectedDocumentId = nil
+        localStore.delete(id: doc.id)
+        statusBanner = "Document deleted"
+        route = .homeLibrary
+    }
+
+    func renameSelectedDocument(_ newName: String) {
+        let clean = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, let doc = selectedDocument,
+              let idx = documents.firstIndex(where: { $0.id == doc.id }) else { return }
+        documents[idx].name = clean
+        if let rec = localStore.fetchById(doc.id) {
+            rec.name = clean
+            localStore.upsert(rec)
+        }
+        statusBanner = "Renamed to \(clean)"
+    }
+
+    func exportSelectedDocumentURL() -> URL? {
+        guard let doc = selectedDocument else { return nil }
+        let pages = [(imagePath: doc.imagePath, ocrText: doc.ocrText)]
+        AnalyticsTracker.logEvent("export_share", params: ["format": exportFormat.rawValue])
+        switch exportFormat {
+        case .pdf:
+            return ExportServices.exportSearchablePDF(title: doc.name, pages: pages)
+        case .doc:
+            return ExportServices.exportDOCX(title: doc.name, pages: pages)
+        case .images:
+            return ExportServices.exportPlainTextOrImages(title: doc.name, pages: pages).first
+        }
+    }
+
+    func connectGoogleBackup(includePhotos: Bool) {
+        if GoogleOAuthBackupService.shared.isSignedIn { return }
+        Task {
+            do {
+                _ = try await GoogleOAuthBackupService.shared.signIn(includePhotos: includePhotos)
+                self.statusBanner = "Google account connected for backup"
+            } catch {
+                self.googleDriveConnected = false
+                self.googlePhotosConnected = false
+                self.statusBanner = "Google sign-in unavailable (check GOOGLE_OAUTH_CLIENT_ID)"
+            }
+        }
+    }
+
+    func syncBackupNow() {
+        guard iCloudDriveConnected || googleDriveConnected || googlePhotosConnected else {
+            lastSyncMessage = "Connect iCloud, Drive, or Photos first"
+            return
+        }
+        let targets = backupEntireLibrary ? documents : (selectedDocument.map { [$0] } ?? [])
+        guard !targets.isEmpty else {
+            lastSyncMessage = "No pages to sync"
+            return
+        }
+        lastSyncMessage = "Syncing \(targets.count) page(s)..."
+        Task {
+            var uploaded = 0
+            var failed = 0
+            for doc in targets {
+                guard !doc.imagePath.isEmpty else { continue }
+                let fileURL = URL(fileURLWithPath: doc.imagePath)
+                let fileName = "\(doc.name.isEmpty ? "Scan" : doc.name)_\(doc.id.prefix(6)).jpg"
+                var ok = true
+                if iCloudDriveConnected {
+                    do {
+                        try await ICloudDriveBackupService.uploadFile(localURL: fileURL, fileName: fileName)
+                    } catch {
+                        ok = false
+                    }
+                }
+                if googleDriveConnected {
+                    do {
+                        try await GoogleOAuthBackupService.shared.uploadImageToDrive(localURL: fileURL, fileName: fileName)
+                    } catch {
+                        ok = false
+                    }
+                }
+                if googlePhotosConnected {
+                    do {
+                        try await GoogleOAuthBackupService.shared.uploadImageToPhotos(localURL: fileURL, fileName: fileName)
+                    } catch {
+                        ok = false
+                    }
+                }
+                if ok { uploaded += 1 } else { failed += 1 }
+            }
+            self.lastSyncMessage = failed == 0
+                ? "Synced \(uploaded) image(s) just now"
+                : "Synced \(uploaded), failed \(failed) (check cloud sign-in)"
+            AnalyticsTracker.logEvent("backup_sync", params: ["uploaded": uploaded, "failed": failed])
+        }
+    }
+
     func deleteAccountAndData() {
         clearLocalLibrary()
         isPro = false
@@ -437,6 +728,7 @@ final class DocScanAppState: ObservableObject {
         googleDriveConnected = false
         iCloudDriveConnected = false
         googlePhotosConnected = false
+        GoogleOAuthBackupService.shared.revoke()
         storeKit.clearLocalEntitlement()
         Task {
             try? await apiClient.deleteDeviceMe()
@@ -483,57 +775,4 @@ final class DocScanAppState: ObservableObject {
         route = .homeLibrary
     }
 
-    private func seedDocuments() {
-        let now = Date()
-        documents = [
-            DocumentItem(
-                id: "doc-1",
-                name: "Invoice Mar 12",
-                docType: "Invoices",
-                createdAt: now,
-                pageCount: 4,
-                ocrText: "INVOICE #1042-88\nBilled to: Acme Corp\nDate: March 12, 2025\nAmount: $1,240.00 USD\nTax ID: US-99214482",
-                ocrLang: "en",
-                ocrConfidence: 0.994,
-                summary: "Vendor invoice for cloud infrastructure services ($1,240.00). Due March 31, 2025.",
-                tags: ["finance", "tax 2025", "vendor"]
-            ),
-            DocumentItem(
-                id: "doc-2",
-                name: "Receipt_0912",
-                docType: "Receipts",
-                createdAt: now.addingTimeInterval(-86_400),
-                pageCount: 1,
-                ocrText: "Blue Bottle Coffee\nTotal: $14.20\nTax 2024 · Paid via Card",
-                ocrLang: "en",
-                ocrConfidence: 0.98,
-                summary: "Coffee receipt for $14.20 from Blue Bottle Coffee.",
-                tags: ["tax 2024", "coffee"]
-            ),
-            DocumentItem(
-                id: "doc-3",
-                name: "Contract Lease Agreement",
-                docType: "Contracts",
-                createdAt: now.addingTimeInterval(-3 * 86_400),
-                pageCount: 3,
-                ocrText: "RESIDENTIAL LEASE AGREEMENT\nSigned between Landlord & Tenant for 12 months.",
-                ocrLang: "en",
-                ocrConfidence: 0.97,
-                summary: "3-page signed lease agreement for 12-month term.",
-                tags: ["legal", "signed"]
-            ),
-            DocumentItem(
-                id: "doc-4",
-                name: "Health Insurance Form",
-                docType: "ID & Legal",
-                createdAt: now.addingTimeInterval(-7 * 86_400),
-                pageCount: 2,
-                ocrText: "HEALTH INSURANCE POLICY #HI-4410\nMember ID: 8821-09\nCoverage: Comprehensive",
-                ocrLang: "en",
-                ocrConfidence: 0.96,
-                summary: "2-page health insurance policy confirmation.",
-                tags: ["medical"]
-            ),
-        ]
-    }
 }

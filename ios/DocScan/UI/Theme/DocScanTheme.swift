@@ -376,8 +376,14 @@ struct DocPageThumbnailView: View {
     var fallbackIcon: String = "doc.text.fill"
     var iconFont: Font = .title3
     var maxDimension: CGFloat = 512
+    var enhancePreset: EnhancePreset? = nil
+    var rotationDegrees: Int = 0
 
     @State private var loadedImage: UIImage? = nil
+
+    private var taskKey: String {
+        "\(imagePath)|\(String(describing: enhancePreset))|\(rotationDegrees)"
+    }
 
     var body: some View {
         ZStack {
@@ -393,13 +399,24 @@ struct DocPageThumbnailView: View {
             }
         }
         .clipped()
-        .task(id: imagePath) {
+        .task(id: taskKey) {
             guard !imagePath.isEmpty else {
                 loadedImage = nil
                 return
             }
+            let preset = enhancePreset
+            let rot = rotationDegrees
             loadedImage = await Task.detached(priority: .utility) {
-                Self.loadDownsampled(path: imagePath, maxPixelSize: maxDimension)
+                guard var img = Self.loadDownsampled(path: imagePath, maxPixelSize: maxDimension) else {
+                    return nil
+                }
+                if rot % 360 != 0 {
+                    img = ImageEnhance.rotate(img, degrees: rot)
+                }
+                if let preset, preset != .original {
+                    img = ImageEnhance.enhance(img, preset: preset)
+                }
+                return img
             }.value
         }
     }

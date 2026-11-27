@@ -10,6 +10,7 @@ import cam.docscan.engine.runtime.PageWorkStore
 import cam.docscan.engine.runtime.WorkJob
 import cam.docscan.engine.runtime.WorkPriority
 import cam.docscan.engine.runtime.WorkQueue
+import java.io.File
 import java.util.UUID
 
 data class EnqueuedPageWork(
@@ -27,9 +28,10 @@ class DocumentPipeline(
     private val repo: PageRepository,
     private val store: PageWorkStore,
     val queue: WorkQueue,
+    private val modelsDir: File? = null,
 ) {
     suspend fun ensureInitialized() {
-        if (!engine.isReady()) engine.initialize(null)
+        if (!engine.isReady()) engine.initialize(modelsDir)
     }
 
     /**

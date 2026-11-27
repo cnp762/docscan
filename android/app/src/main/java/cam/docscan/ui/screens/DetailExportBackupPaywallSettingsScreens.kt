@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Favorite
@@ -122,6 +123,9 @@ fun DocumentDetailScreen(
     var copied by remember { mutableStateOf(false) }
     var showAddTagDialog by remember { mutableStateOf(false) }
     var newTagInput by remember { mutableStateOf("") }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var renameInput by remember { mutableStateOf("") }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     if (doc == null) {
         Scaffold(containerColor = DocScanColors.SurfaceBase, topBar = { DocTopBar("Document", onBack = onBack) }) { inner ->
@@ -143,6 +147,19 @@ fun DocumentDetailScreen(
                 title = doc.name,
                 subtitle = "$dateLabel · ${doc.docType ?: "Document"}",
                 onBack = onBack,
+                trailing = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        IconButton(onClick = {
+                            renameInput = doc.name
+                            showRenameDialog = true
+                        }) {
+                            Icon(Icons.Rounded.Edit, contentDescription = "Rename", tint = DocScanColors.TextSecondary)
+                        }
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Rounded.DeleteOutline, contentDescription = "Delete", tint = DocScanColors.DangerCrimson)
+                        }
+                    }
+                },
             )
         },
         bottomBar = { FreeAdBannerSlot(isPro = state.isPro) },
@@ -315,6 +332,49 @@ fun DocumentDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showAddTagDialog = false }) { Text("Cancel", color = DocScanColors.TextSecondary) }
+            },
+        )
+    }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            containerColor = DocScanColors.SurfaceCard,
+            title = { Text("Rename Document", color = DocScanColors.TextPrimary) },
+            text = {
+                OutlinedTextField(
+                    value = renameInput,
+                    onValueChange = { renameInput = it },
+                    singleLine = true,
+                    placeholder = { Text("Document name") },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.renameSelectedDocument(renameInput)
+                    showRenameDialog = false
+                }) { Text("Save", color = DocScanColors.ScanGlow) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel", color = DocScanColors.TextSecondary) }
+            },
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            containerColor = DocScanColors.SurfaceCard,
+            title = { Text("Delete Document?", color = DocScanColors.DangerCrimson) },
+            text = { Text("This permanently deletes this document and its local image from your phone.", color = DocScanColors.TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    state.deleteSelectedDocument()
+                }) { Text("Delete", color = DocScanColors.DangerCrimson) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel", color = DocScanColors.TextSecondary) }
             },
         )
     }
@@ -589,6 +649,7 @@ fun ExportShareScreen(
 fun BackupScreen(
     state: DocScanAppState,
     onBack: () -> Unit,
+    onRequestGoogleAuth: (includePhotos: Boolean) -> Unit = {},
 ) {
     Scaffold(
         containerColor = DocScanColors.SurfaceBase,
@@ -598,7 +659,7 @@ fun BackupScreen(
                 subtitle = state.lastSyncMessage,
                 onBack = onBack,
                 trailing = {
-                    TextButton(onClick = { state.lastSyncMessage = "Images synced just now" }) {
+                    TextButton(onClick = { state.syncBackupNow() }) {
                         Icon(Icons.Rounded.Sync, contentDescription = null, tint = DocScanColors.ScanGlow, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.size(4.dp))
                         Text("Sync All", color = DocScanColors.ScanGlow)
@@ -645,7 +706,12 @@ fun BackupScreen(
                     }
                     Switch(
                         checked = state.googleDriveConnected,
-                        onCheckedChange = { state.googleDriveConnected = it },
+                        onCheckedChange = { enabled ->
+                            state.googleDriveConnected = enabled
+                            if (enabled && state.needsGoogleSignIn()) {
+                                onRequestGoogleAuth(state.googlePhotosConnected)
+                            }
+                        },
                         colors = SwitchDefaults.colors(checkedThumbColor = DocScanColors.OnPrimary, checkedTrackColor = DocScanColors.ScanGlow),
                     )
                 }
@@ -676,7 +742,12 @@ fun BackupScreen(
                     }
                     Switch(
                         checked = state.googlePhotosConnected,
-                        onCheckedChange = { state.googlePhotosConnected = it },
+                        onCheckedChange = { enabled ->
+                            state.googlePhotosConnected = enabled
+                            if (enabled && state.needsGoogleSignIn()) {
+                                onRequestGoogleAuth(true)
+                            }
+                        },
                         colors = SwitchDefaults.colors(checkedThumbColor = DocScanColors.OnPrimary, checkedTrackColor = DocScanColors.ScanGlow),
                     )
                 }

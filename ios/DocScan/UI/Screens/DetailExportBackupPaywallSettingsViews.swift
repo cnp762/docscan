@@ -6,6 +6,9 @@ struct DocumentDetailView: View {
 
     @State private var showAddTag = false
     @State private var newTagText = ""
+    @State private var showRename = false
+    @State private var renameText = ""
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,6 +21,19 @@ struct DocumentDetailView: View {
                     }
                 }
                 Spacer()
+                if let doc = state.selectedDocument {
+                    DocCircleIconButton(systemImage: "pencil", accessibilityLabel: "Rename") {
+                        renameText = doc.name
+                        showRename = true
+                    }
+                    DocCircleIconButton(
+                        systemImage: "trash",
+                        accessibilityLabel: "Delete",
+                        foreground: DocScanColors.dangerCrimson
+                    ) {
+                        showDeleteConfirm = true
+                    }
+                }
             }
             .padding(16)
 
@@ -137,6 +153,21 @@ struct DocumentDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .alert("Rename Document", isPresented: $showRename) {
+            TextField("Document name", text: $renameText)
+            Button("Save") {
+                state.renameSelectedDocument(renameText)
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("Delete Document?", isPresented: $showDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                state.deleteSelectedDocument()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes this document and its local image from your phone.")
+        }
     }
 }
 
@@ -173,6 +204,8 @@ struct SearchFilterView: View {
             let queryMatch = q.isEmpty ||
                 doc.name.lowercased().contains(q) ||
                 doc.ocrText.lowercased().contains(q) ||
+                doc.summary.lowercased().contains(q) ||
+                doc.docType.lowercased().contains(q) ||
                 doc.tags.contains { $0.lowercased().contains(q) }
             return tagMatch && queryMatch
         }
@@ -325,18 +358,30 @@ struct ExportShareView: View {
             }
 
             VStack(spacing: 10) {
-                ShareLink(item: state.selectedDocument?.ocrText ?? "DocScan Export") {
-                    Label("Share & Export \(state.exportFormat.rawValue.uppercased())", systemImage: "square.and.arrow.up")
-                        .font(.headline)
-                        .foregroundStyle(DocScanColors.onPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(DocScanColors.scanGlow)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                if let exportURL = state.exportSelectedDocumentURL() {
+                    ShareLink(item: exportURL) {
+                        Label("Share & Export \(state.exportFormat.rawValue.uppercased())", systemImage: "square.and.arrow.up")
+                            .font(.headline)
+                            .foregroundStyle(DocScanColors.onPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(DocScanColors.scanGlow)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                } else {
+                    ShareLink(item: state.selectedDocument?.ocrText ?? "DocScan Export") {
+                        Label("Share & Export \(state.exportFormat.rawValue.uppercased())", systemImage: "square.and.arrow.up")
+                            .font(.headline)
+                            .foregroundStyle(DocScanColors.onPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                            .background(DocScanColors.scanGlow)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
                 }
                 Button {
                     if let doc = state.selectedDocument,
-                       let pdf = ExportServices.exportSearchablePDF(title: doc.name, pages: [(imagePath: "", ocrText: doc.ocrText)]) {
+                       let pdf = ExportServices.exportSearchablePDF(title: doc.name, pages: [(imagePath: doc.imagePath, ocrText: doc.ocrText)]) {
                         AnalyticsTracker.logEvent("export_share", params: ["format": "print"])
                         ExportServices.printFile(url: pdf, jobName: doc.name)
                     }
@@ -369,7 +414,7 @@ struct BackupView: View {
                     Text(state.lastSyncMessage).font(.caption).foregroundStyle(DocScanColors.textSecondary)
                 }
                 Spacer()
-                Button("Sync All") { state.lastSyncMessage = "Images synced just now" }
+                Button("Sync All") { state.syncBackupNow() }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(DocScanColors.scanGlow)
             }
@@ -390,6 +435,9 @@ struct BackupView: View {
                             }
                         }
                         .tint(DocScanColors.scanGlow)
+                        .onChange(of: state.googleDriveConnected) { _, enabled in
+                            if enabled { state.connectGoogleBackup(includePhotos: state.googlePhotosConnected) }
+                        }
                     }
 
                     DocCardSurface(borderColor: state.iCloudDriveConnected ? DocScanColors.scanGlow.opacity(0.45) : DocScanColors.borderSubtle) {
@@ -412,6 +460,9 @@ struct BackupView: View {
                             }
                         }
                         .tint(DocScanColors.scanGlow)
+                        .onChange(of: state.googlePhotosConnected) { _, enabled in
+                            if enabled { state.connectGoogleBackup(includePhotos: true) }
+                        }
                     }
 
                     DocCardSurface {

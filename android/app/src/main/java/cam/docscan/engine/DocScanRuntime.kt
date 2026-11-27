@@ -11,6 +11,7 @@ import cam.docscan.engine.suggest.EmptySuggestMediaProvider
 import cam.docscan.engine.suggest.SuggestCache
 import cam.docscan.engine.suggest.SuggestMediaProvider
 import cam.docscan.engine.suggest.SuggestScanner
+import java.io.File
 
 /**
  * App-scoped shared WorkQueue + pipeline + suggest scanner.
@@ -21,6 +22,7 @@ class DocScanRuntime(
     suggestProvider: SuggestMediaProvider = EmptySuggestMediaProvider(),
     val suggestCache: SuggestCache = SuggestCache(),
 ) {
+    val modelsDir: File? = syncBundledModels(context.applicationContext)
     val engine = DefaultDocScanEngine(context.applicationContext)
     val store = PageWorkStore()
 
@@ -38,7 +40,7 @@ class DocScanRuntime(
 
     val queue: WorkQueue = WorkQueue { job -> handler.handle(job) }.also { queueRef[0] = it }
 
-    val pipeline = DocumentPipeline(engine, repo, store, queue)
+    val pipeline = DocumentPipeline(engine, repo, store, queue, modelsDir)
 
     val suggestScanner = SuggestScanner(queue, suggestCache)
 
@@ -46,5 +48,31 @@ class DocScanRuntime(
         queue.close()
         store.clear()
         engine.close()
+    }
+
+    companion object {
+        private fun syncBundledModels(context: Context): File? = runCatching {
+            val outDir = File(context.filesDir, "models")
+            copyAssetDir(context, "models", outDir)
+            outDir
+        }.getOrNull()
+
+        private fun copyAssetDir(context: Context, assetPath: String, destDir: File) {
+            val entries = context.assets.list(assetPath) ?: return
+            if (entries.isEmpty()) return
+            destDir.mkdirs()
+            for (name in entries) {
+                val childAsset = "$assetPath/$name"
+                val childDest = File(destDir, name)
+                val sub = context.assets.list(childAsset)
+                if (!sub.isNullOrEmpty()) {
+                    copyAssetDir(context, childAsset, childDest)
+                } else if (!childDest.exists() || childDest.length() == 0L) {
+                    context.assets.open(childAsset).use { input ->
+                        childDest.outputStream().use { output -> input.copyTo(output) }
+                    }
+                }
+            }
+        }
     }
 }

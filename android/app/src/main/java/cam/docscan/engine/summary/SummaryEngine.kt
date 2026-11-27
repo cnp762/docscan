@@ -6,18 +6,16 @@ import cam.docscan.engine.runtime.DeviceCapability
 import java.io.File
 
 /**
- * Extractive always. Generative only when weights exist and [DeviceCapability] allows.
+ * Fast on-device extractive summary prioritizing searchable facts
+ * (titles, dates, amounts, IDs, and multilingual document keywords).
  */
 class SummaryEngine(
-    private val modelsDir: File? = null,
-    private val capability: DeviceCapability = DeviceCapability(),
+    @Suppress("UNUSED_PARAMETER") modelsDir: File? = null,
+    @Suppress("UNUSED_PARAMETER") capability: DeviceCapability = DeviceCapability(),
 ) {
-    private val generativeAvailable: Boolean
-        get() = modelsDir?.resolve("summary")?.takeIf { it.isDirectory }?.list()?.isNotEmpty() == true
-
     suspend fun summarize(
         ocrText: String,
-        mode: SummaryMode = SummaryMode.AUTO,
+        @Suppress("UNUSED_PARAMETER") mode: SummaryMode = SummaryMode.EXTRACTIVE,
         maxChars: Int = DeviceCapability.PAGE_SUMMARY_MAX_CHARS,
         inputCap: Int = DeviceCapability.BATCH_SUMMARY_MAX_CHARS,
     ): SummaryResult {
@@ -25,43 +23,40 @@ class SummaryEngine(
         if (cleaned.isEmpty()) {
             return SummaryResult("", SummaryResult.SOURCE_EXTRACTIVE)
         }
-        val wantGen = mode == SummaryMode.AUTO && generativeAvailable && capability.allowGenerative()
-        if (wantGen) {
-            // Placeholder for ORT/ExecuTorch weights; fall through until wired.
-            val gen = runGenerativeStub(cleaned, maxChars)
-            if (gen != null) return gen
-        }
         return SummaryResult(extractive(cleaned, maxChars), SummaryResult.SOURCE_EXTRACTIVE)
     }
 
     /** Legacy String API for callers not yet on SummaryResult. */
     suspend fun summarizeText(ocrText: String): String = summarize(ocrText).text
 
-    private fun runGenerativeStub(text: String, maxChars: Int): SummaryResult? {
-        // Weights directory present but runtime not wired → treat as unavailable.
-        if (!generativeAvailable) return null
-        return null
-    }
-
     private fun extractive(text: String, maxChars: Int): String {
-        val sentences = text
+        val lines = text
             .split(Regex("(?<=[.!?])\\s+|\\n+"))
             .map { it.trim() }
-            .filter { it.length >= 20 }
-        if (sentences.isEmpty()) {
+            .filter { it.length >= 8 }
+            .distinct()
+        if (lines.isEmpty()) {
             return text.take(maxChars.coerceAtMost(280)).trim()
         }
-        val scored = sentences.map { s ->
-            val score = s.length +
-                (if (KEYWORD.containsMatchIn(s)) 40 else 0)
+        val scored = lines.mapIndexed { idx, s ->
+            var score = s.length.coerceAtMost(120)
+            if (idx == 0) score += 25 // Header / title line
+            if (KEYWORD.containsMatchIn(s)) score += 45
+            if (ENTITY_SIGNAL.containsMatchIn(s)) score += 35
             s to score
         }.sortedByDescending { it.second }
-        return scored.take(3).joinToString(" ") { it.first }.take(maxChars)
+        return scored.take(4).joinToString(" · ") { it.first }.take(maxChars)
     }
 
     companion object {
         private val KEYWORD = Regex(
-            "invoice|total|amount|agreement|date|receipt|contract|passport",
+            "invoice|total|subtotal|amount|due|tax|vat|agreement|date|receipt|contract|passport|id|account|" +
+                "hóa đơn|tổng|thành tiền|thuế|ngày|hợp đồng|biên lai|số|mã|căn cước|" +
+                "rechnung|betrag|datum|facture|montant|total|fecha|importe|合計|請求|領収|합계|영수증|发票|总额",
+            RegexOption.IGNORE_CASE,
+        )
+        private val ENTITY_SIGNAL = Regex(
+            "(\\$|€|£|¥|₫|USD|VND|EUR)\\s?\\d|\\d{1,4}[/-]\\d{1,2}[/-]\\d{2,4}|#[A-Z0-9-]{3,}",
             RegexOption.IGNORE_CASE,
         )
     }

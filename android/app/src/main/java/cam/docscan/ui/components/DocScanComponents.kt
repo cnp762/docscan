@@ -596,11 +596,32 @@ fun DocPageThumbnail(
     fallbackIcon: ImageVector = Icons.Rounded.Description,
     iconSize: Dp = 24.dp,
     maxDimensionPx: Int = 512,
+    enhancePreset: EnhancePreset? = null,
+    rotationDegrees: Int = 0,
 ) {
     val context = LocalContext.current
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, imagePath, sourceUri) {
+    val bitmap by produceState<ImageBitmap?>(
+        initialValue = null,
+        imagePath,
+        sourceUri,
+        enhancePreset,
+        rotationDegrees,
+    ) {
         value = withContext(Dispatchers.IO) {
-            decodeSampledBitmap(context, imagePath, sourceUri, maxDimensionPx)?.asImageBitmap()
+            val raw = decodeSampledBitmap(context, imagePath, sourceUri, maxDimensionPx) ?: return@withContext null
+            val engine = cam.docscan.engine.enhance.BitmapEnhanceEngine()
+            var current = raw
+            if (rotationDegrees % 360 != 0) {
+                val rot = engine.rotate(current, rotationDegrees)
+                if (rot !== current) current.recycle()
+                current = rot
+            }
+            if (enhancePreset != null && enhancePreset != EnhancePreset.ORIGINAL) {
+                val enh = engine.enhance(current, enhancePreset)
+                if (enh !== current) current.recycle()
+                current = enh
+            }
+            current.asImageBitmap()
         }
     }
 

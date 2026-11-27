@@ -371,6 +371,11 @@ struct LibrarySuggestView: View {
             .background(DocScanColors.surfaceRaised)
         }
         .background(DocScanColors.surfaceBase.ignoresSafeArea())
+        .onAppear {
+            if state.photoPermissionGranted && state.suggestCandidates.isEmpty {
+                state.refreshLibrarySuggestions()
+            }
+        }
     }
 }
 
@@ -402,6 +407,23 @@ struct CameraCaptureView: View {
     @StateObject private var captureController = CameraCaptureController()
     @State private var corners: [CGPoint] = DraftPageItem.defaultQuad()
     @State private var flashOn = false
+    @State private var isCapturing = false
+    @State private var lastAutoCaptureAt: TimeInterval = 0
+
+    private func triggerCapture() {
+        guard state.cameraPermissionGranted, !isCapturing else { return }
+        isCapturing = true
+        Task {
+            let image = await captureController.capturePhoto()
+            isCapturing = false
+            if let image {
+                state.addCapturedImage(image, corners: corners)
+                if !state.isBatchMode {
+                    state.route = .reviewEdit
+                }
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -418,6 +440,18 @@ struct CameraCaptureView: View {
                         if let detected, detected.count == 4 {
                             corners = detected
                         }
+                        let now = CACurrentMediaTime()
+                        if state.autoCapture,
+                           captureController.isStable,
+                           !captureController.isLowLight,
+                           !isCapturing,
+                           now - lastAutoCaptureAt >= 2.0 {
+                            lastAutoCaptureAt = now
+                            triggerCapture()
+                        }
+                    }
+                    .onChange(of: flashOn) { _, newVal in
+                        captureController.setFlashEnabled(newVal)
                     }
             } else {
                 DocScanColors.surfaceBase.ignoresSafeArea()
@@ -460,8 +494,8 @@ struct CameraCaptureView: View {
 
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(DocScanColors.scanGlow)
-                    Text("Hold steady · All corners detected")
+                        .foregroundStyle(captureController.isLowLight ? DocScanColors.warningAmber : DocScanColors.scanGlow)
+                    Text(captureController.guidanceMessage)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(DocScanColors.textPrimary)
                 }
@@ -504,16 +538,14 @@ struct CameraCaptureView: View {
                         }
                         Spacer()
                         Button {
-                            state.addCapturedPage()
-                            if !state.isBatchMode {
-                                state.route = .reviewEdit
-                            }
+                            triggerCapture()
                         } label: {
                             Circle()
                                 .stroke(DocScanColors.scanGlow, lineWidth: 2)
                                 .frame(width: 74, height: 74)
-                                .overlay(Circle().fill(Color.white).frame(width: 56, height: 56))
+                                .overlay(Circle().fill(isCapturing ? DocScanColors.textMuted : Color.white).frame(width: 56, height: 56))
                         }
+                        .disabled(isCapturing)
                         .buttonStyle(ScalePressButtonStyle())
                         Spacer()
                         Button {
@@ -623,7 +655,18 @@ struct ReviewEditView: View {
                                 imagePath: state.draftPages[activeIndex].imagePath,
                                 fallbackIcon: "doc.viewfinder",
                                 iconFont: .largeTitle,
-                                maxDimension: 1024
+                                maxDimension: 1024,
+                                enhancePreset: {
+                                    switch state.draftPages[activeIndex].enhanceMode {
+                                    case .original: return .original
+                                    case .color: return .color
+                                    case .gray: return .gray
+                                    case .bw: return .bw
+                                    case .docClean: return .document
+                                    case .deshadow: return .deshadow
+                                    }
+                                }(),
+                                rotationDegrees: state.draftPages[activeIndex].rotationDegrees
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(DocScanColors.borderSubtle, lineWidth: 1))
@@ -658,6 +701,18 @@ struct ReviewEditView: View {
 
                             Button("Reset Quad") {
                                 state.draftPages[activeIndex].corners = DraftPageItem.defaultQuad()
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(DocScanColors.borderMedium, lineWidth: 1))
+
+                            Button("Full Bleed") {
+                                state.draftPages[activeIndex].corners = [
+                                    CGPoint(x: 0.03, y: 0.03),
+                                    CGPoint(x: 0.97, y: 0.03),
+                                    CGPoint(x: 0.97, y: 0.97),
+                                    CGPoint(x: 0.03, y: 0.97),
+                                ]
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)

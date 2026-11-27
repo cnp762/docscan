@@ -75,8 +75,29 @@ final class DocScanStore {
 
     func upsert(_ record: PersistedPageRecord) {
         guard let context = container?.mainContext else { return }
-        context.insert(record)
+        let targetId = record.id
+        let descriptor = FetchDescriptor<PersistedPageRecord>(predicate: #Predicate { $0.id == targetId })
+        if let existing = (try? context.fetch(descriptor))?.first {
+            existing.batchId = record.batchId
+            existing.name = record.name
+            existing.source = record.source
+            existing.imagePath = record.imagePath
+            existing.ocrText = record.ocrText
+            existing.ocrLang = record.ocrLang
+            existing.docType = record.docType
+            existing.tagsRaw = record.tagsRaw
+            existing.summary = record.summary
+            existing.sortIndex = record.sortIndex
+        } else {
+            context.insert(record)
+        }
         try? context.save()
+    }
+
+    func fetchById(_ id: String) -> PersistedPageRecord? {
+        guard let context = container?.mainContext else { return nil }
+        let descriptor = FetchDescriptor<PersistedPageRecord>(predicate: #Predicate { $0.id == id })
+        return (try? context.fetch(descriptor))?.first
     }
 
     func delete(id: String) {

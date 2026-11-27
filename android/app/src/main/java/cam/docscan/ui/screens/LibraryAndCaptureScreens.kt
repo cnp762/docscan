@@ -1,13 +1,11 @@
 package cam.docscan.ui.screens
 
 import android.graphics.BitmapFactory
+import android.os.SystemClock
 import android.view.ViewGroup
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import cam.docscan.capture.CameraXCaptureController
+import cam.docscan.capture.CaptureFrameGuidance
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -84,6 +82,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -526,6 +525,11 @@ fun LibrarySuggestScreen(
     state: DocScanAppState,
     onBack: () -> Unit,
 ) {
+    LaunchedEffect(state.photoPermissionGranted) {
+        if (state.photoPermissionGranted && state.suggestCandidates.isEmpty()) {
+            state.refreshLibrarySuggestions()
+        }
+    }
     val selectedCount = state.suggestCandidates.count { it.selected }
     Scaffold(
         containerColor = DocScanColors.SurfaceBase,
@@ -672,12 +676,44 @@ fun CameraCaptureScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var corners by remember { mutableStateOf(DraftPage.defaultQuad()) }
     var flashOn by remember { mutableStateOf(false) }
-    val imageCapture = remember {
-        ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-            .build()
+    var guidance by remember { mutableStateOf(CaptureFrameGuidance()) }
+    var lastAutoCaptureMs by remember { mutableStateOf(0L) }
+    val controller = remember {
+        val detector = cam.docscan.engine.detect.HeuristicDetectEngine().apply {
+            initialize(state.modelsDir)
+        }
+        CameraXCaptureController(context, detector)
     }
-    val captureExecutor = remember { Executors.newSingleThreadExecutor() }
+
+    fun triggerCapture() {
+        if (!state.cameraPermissionGranted || state.isCapturing) return
+        state.isCapturing = true
+        val pageId = UUID.randomUUID().toString()
+        val outFile = File(context.cacheDir, "capture-$pageId.jpg")
+        controller.takePhoto(outFile) { result ->
+            result.onSuccess { file ->
+                val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                val persisted = if (bitmap != null) {
+                    state.fileStorage.saveBitmap(pageId, bitmap).also { bitmap.recycle() }
+                } else {
+                    file
+                }
+                state.addCapturedPage(
+                    imagePath = persisted.absolutePath,
+                    corners = corners,
+                    title = "Scan ${state.draftPages.size + 1}",
+                    pageId = pageId,
+                )
+                state.isCapturing = false
+                if (state.captureMode == CaptureMode.SINGLE) {
+                    state.currentRoute = DocScanRoute.REVIEW_EDIT
+                }
+            }.onFailure { err ->
+                state.isCapturing = false
+                state.statusBanner = "Capture failed: ${err.message}"
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -693,38 +729,31 @@ fun CameraCaptureScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT,
                         )
+                    }.also { previewView ->
+                        controller.bind(lifecycleOwner, previewView, flashOn) { frame ->
+                            guidance = frame
+                            frame.normalizedCorners?.let { corners = it }
+                            val now = SystemClock.elapsedRealtime()
+                            if (state.autoCaptureEnabled &&
+                                frame.isStable &&
+                                !frame.isBlurry &&
+                                !frame.isLowLight &&
+                                !state.isCapturing &&
+                                now - lastAutoCaptureMs >= 2000L
+                            ) {
+                                lastAutoCaptureMs = now
+                                triggerCapture()
+                            }
+                        }
                     }
                 },
-                update = { previewView ->
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-                    cameraProviderFuture.addListener({
-                        runCatching {
-                            val provider = cameraProviderFuture.get()
-                            val preview = Preview.Builder().build().also {
-                                it.surfaceProvider = previewView.surfaceProvider
-                            }
-                            imageCapture.flashMode = if (flashOn) {
-                                ImageCapture.FLASH_MODE_ON
-                            } else {
-                                ImageCapture.FLASH_MODE_OFF
-                            }
-                            provider.unbindAll()
-                            provider.bindToLifecycle(
-                                lifecycleOwner,
-                                CameraSelector.DEFAULT_BACK_CAMERA,
-                                preview,
-                                imageCapture,
-                            )
-                        }
-                    }, ContextCompat.getMainExecutor(context))
+                update = {
+                    controller.setFlashEnabled(flashOn)
                 },
             )
             DisposableEffect(lifecycleOwner) {
                 onDispose {
-                    runCatching {
-                        ProcessCameraProvider.getInstance(context).get().unbindAll()
-                    }
-                    captureExecutor.shutdown()
+                    controller.release()
                 }
             }
         } else {
@@ -818,8 +847,13 @@ fun CameraCaptureScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Icon(Icons.Rounded.Verified, contentDescription = null, tint = DocScanColors.ScanGlow, modifier = Modifier.size(16.dp))
-                    Text("Hold steady · All corners detected", style = MaterialTheme.typography.labelMedium, color = DocScanColors.TextPrimary)
+                    Icon(
+                        Icons.Rounded.Verified,
+                        contentDescription = null,
+                        tint = if (guidance.isLowLight || guidance.isBlurry) DocScanColors.WarningAmber else DocScanColors.ScanGlow,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(guidance.message, style = MaterialTheme.typography.labelMedium, color = DocScanColors.TextPrimary)
                 }
             }
         }
@@ -894,46 +928,7 @@ fun CameraCaptureScreen(
                             interactionSource = shutterInteraction,
                             indication = null,
                         ) {
-                            if (!state.cameraPermissionGranted || state.isCapturing) return@clickable
-                            state.isCapturing = true
-                            val pageId = UUID.randomUUID().toString()
-                            val outFile = File(context.cacheDir, "capture-$pageId.jpg")
-                            val output = ImageCapture.OutputFileOptions.Builder(outFile).build()
-                            imageCapture.takePicture(
-                                output,
-                                captureExecutor,
-                                object : ImageCapture.OnImageSavedCallback {
-                                    override fun onImageSaved(results: ImageCapture.OutputFileResults) {
-                                        val bitmap = BitmapFactory.decodeFile(outFile.absolutePath)
-                                        val persisted = if (bitmap != null) {
-                                            state.fileStorage.saveBitmap(pageId, bitmap).also {
-                                                bitmap.recycle()
-                                            }
-                                        } else {
-                                            outFile
-                                        }
-                                        ContextCompat.getMainExecutor(context).execute {
-                                            state.addCapturedPage(
-                                                imagePath = persisted.absolutePath,
-                                                corners = corners,
-                                                title = "Scan ${state.draftPages.size + 1}",
-                                                pageId = pageId,
-                                            )
-                                            state.isCapturing = false
-                                            if (state.captureMode == CaptureMode.SINGLE) {
-                                                state.currentRoute = DocScanRoute.REVIEW_EDIT
-                                            }
-                                        }
-                                    }
-
-                                    override fun onError(exception: ImageCaptureException) {
-                                        ContextCompat.getMainExecutor(context).execute {
-                                            state.isCapturing = false
-                                            state.statusBanner = "Capture failed: ${exception.message}"
-                                        }
-                                    }
-                                },
-                            )
+                            triggerCapture()
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -1157,6 +1152,8 @@ fun ReviewEditScreen(
                         fallbackIcon = Icons.Rounded.DocumentScanner,
                         iconSize = 44.dp,
                         maxDimensionPx = 1024,
+                        enhancePreset = activePage.enhanceMode,
+                        rotationDegrees = activePage.rotationDegrees,
                     )
                     if (activePage.imagePath.isBlank() && activePage.sourceUri == null) {
                         Column(
