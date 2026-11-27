@@ -89,19 +89,8 @@ struct FreeAdBannerSlot: View {
 
     var body: some View {
         if visible {
-            Text("Ad · Free plan")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(DocScanColors.textMuted)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(DocScanColors.surfaceOverlay)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(DocScanColors.borderSubtle, lineWidth: 1)
-                )
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
+            AdMobBannerView(isPro: false)
+                .padding(.vertical, 4)
         }
     }
 }

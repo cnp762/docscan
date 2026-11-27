@@ -171,27 +171,10 @@ fun FreeAdBannerSlot(
     modifier: Modifier = Modifier,
 ) {
     if (!visible) return
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(10.dp),
-        color = DocScanColors.SurfaceOverlay,
-        border = BorderStroke(1.dp, DocScanColors.BorderSubtle),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "Ad · Free plan",
-                style = MaterialTheme.typography.labelMedium,
-                color = DocScanColors.TextMuted,
-            )
-        }
-    }
+    cam.docscan.telemetry.AdMobBanner(
+        isPro = false,
+        modifier = modifier.padding(vertical = 4.dp),
+    )
 }
 
 @Composable

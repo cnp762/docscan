@@ -109,15 +109,7 @@ fun DocScanAppRoot() {
         }
     }
 
-    val showBannerOnRoute = !state.isPro && state.currentRoute in listOf(
-        DocScanRoute.HOME_LIBRARY,
-        DocScanRoute.SEARCH_FILTER,
-        DocScanRoute.DOC_DETAIL,
-    )
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.weight(1f)) {
-            when (state.currentRoute) {
+    when (state.currentRoute) {
         DocScanRoute.ONBOARDING -> OnboardingScreen(
             onGetStarted = {
                 AnalyticsTracker.logEvent(context, "onboarding_complete")
@@ -227,10 +219,5 @@ fun DocScanAppRoot() {
                 state.activeTab = MainTab.LIBRARY
             },
         )
-            }
-        }
-        if (showBannerOnRoute) {
-            AdMobBanner(isPro = state.isPro)
-        }
     }
 }
